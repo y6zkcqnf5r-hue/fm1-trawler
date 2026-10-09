@@ -30,6 +30,7 @@ Le même code de `firmware/src/` se compile pour trois cibles, qui ne diffèrent
 FM1/                               (ce dossier = la racine du repo)
 ├─ CLAUDE.md  README.md  LICENSE (GPL-3.0)  LICENSING.md  Makefile  .gitignore
 ├─ docs/                           PRD, spec, archi, backlog, décisions
+├─ assets/fonts/                   ter-u12n.bdf (Terminus 6×12, OFL, police provisoire de P0-04)
 ├─ firmware/
 │  ├─ src/
 │  │  ├─ app/   plat.h  main.c  config.h (limites, budgets)  plat_fm1.c (P5)
@@ -46,7 +47,7 @@ FM1/                               (ce dossier = la racine du repo)
 ├─ tests/
 │  ├─ unit/       test_fixed.c test_seq.c test_serial.c test_edit.c ...
 │  ├─ scenarios/  *.trs   (press/turn/key/wait/wav/shot/expect)
-│  ├─ golden/     hashes SHA-256 des WAV et PNG de référence
+│  ├─ golden/     <scénario>.sha256 : hashes SHA-256 des WAV et PNG de référence
 │  └─ host/emu_test.mjs  (le wasm et le natif rendent les mêmes octets)
 ├─ tools/  gen_font.py  gen_tables.py  size_report.py  lint.sh  make_demo.py
 └─ vendor-ref/   (gitignore) clones en lecture seule
@@ -194,7 +195,14 @@ Le simulateur se découpe en quatre fichiers :
 
 La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : le WAV en natif, l'anneau du worklet en web.
 
-**La commande :** `build/host/trawler SCRIPT.trs [OUTDIR]`. Elle sort avec 0 si tout passe, 1 si un `expect` échoue, 2 si le script est faux. `make scenarios` joue chaque `tests/scenarios/*.trs` dans `build/scenarios/<nom>/`, puis `tests/host/check_outputs.py` valide les PNG et les WAV produits.
+**La commande :** `build/host/trawler SCRIPT.trs [OUTDIR]`. Elle sort avec 0 si tout passe, 1 si un `expect` échoue, 2 si le script est faux. `make scenarios` joue chaque `tests/scenarios/*.trs` dans `build/scenarios/<nom>/`, puis `tests/host/check_outputs.py` valide les PNG et les WAV produits, et `tests/host/golden.py check` compare leurs hashes à `tests/golden/<nom>.sha256`.
+
+**Les golden :**
+- un fichier par scénario, au format de `shasum -a 256` (`<hex>  <fichier>`, trié par nom) ;
+- chaque WAV et PNG produit doit y figurer avec le même hash, et chaque ligne doit avoir son fichier ;
+- `make golden` rejoue les scénarios et réécrit les `.sha256`. On ne le lance qu'après avoir écouté le WAV et regardé le PNG, et le diff des `.sha256` part dans le commit.
+
+**La police provisoire :** `tools/gen_font.py` convertit `assets/fonts/ter-u12n.bdf` en `build/gen/font.h` (ASCII 32–126, une ligne par octet), et `ui/gfx.c` en dessine le texte. P1-04 l'étend (Q-02).
 
 **Le format :** une commande par ligne. Un `#` en début de mot ouvre un commentaire (`C#4` n'en est pas un).
 

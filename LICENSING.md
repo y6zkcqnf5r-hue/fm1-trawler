@@ -11,11 +11,14 @@ Chaque fichier source commence par `SPDX-License-Identifier: GPL-3.0-only`. Le c
 | Méthode de la table de hauteurs (une seule octave stockée, décalée pour les autres) : `tools/gen_tables.py`, `pitch_inc()` dans `firmware/src/dsp/fixed.h` | [Felucca](https://github.com/hugelton/Felucca) `tools/gen_tables.py`, Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments ; réécrit pour Trawler | GPL-3.0-only |
 | Forme de l'interface `firmware/src/app/plat.h` | [X0X](https://github.com/charlesvestal/fm1-x0x) et [FoMni](https://github.com/charlesvestal/fm1-fomni) de Charles Vestal ; réécrite pour Trawler | GPL-3.0-only |
 | Simulateur hôte (`host/`) : horloge `host_run_ms`, langage de scénarios `.trs`, PNG en blocs deflate « stored » sans zlib | [FoMni](https://github.com/charlesvestal/fm1-fomni) `host/omni_host.c` et [X0X](https://github.com/charlesvestal/fm1-x0x) `host/x0x_host.c` de Charles Vestal ; réécrit pour Trawler | GPL-3.0-only |
+| Générateur de police `tools/gen_font.py` (lecture du BDF), `firmware/src/ui/gfx.c` | Trawler | GPL-3.0-only |
 | Tout le reste | Trawler | GPL-3.0-only |
 
 ## Matériel tiers
 
-Aucun pour l'instant.
+| Quoi | Origine | Licence | Fichiers |
+| --- | --- | --- | --- |
+| Police Terminus 12 px (6×12), la police provisoire de P0-04 | Copyright (C) 2020 Dimitar Toshkov Zhekov, copiée depuis [X0X](https://github.com/charlesvestal/fm1-x0x) `assets/fonts/` | SIL OFL 1.1 | `assets/fonts/ter-u12n.bdf`, `assets/fonts/Terminus-LICENSE.txt` ; les glyphes générés dans `build/gen/font.h` restent sous OFL |
 
 ## Marques
 

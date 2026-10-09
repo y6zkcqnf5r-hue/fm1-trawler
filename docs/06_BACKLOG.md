@@ -32,7 +32,7 @@ Le repo prend forme : git, LICENSE GPL-3.0, LICENSING.md, .gitignore (`build/`, 
 
 - CA : `tests/scenarios/hello.trs` (appuyer sur une touche, attendre, `wav`, `shot`) produit un WAV non vide et un PNG de 240×240.
 
-**☐ P0-04 — App « hello » (S)**
+**☑ P0-04 — App « hello » (S)**
 
 Une app minimale :
 - un sinus monophonique joué au clavier (27 touches, octave par OCT±) ;

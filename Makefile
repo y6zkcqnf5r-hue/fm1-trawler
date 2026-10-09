@@ -6,7 +6,9 @@
 #   make serve   serve build/emu on http://localhost:8080       (P0-05)
 #   make test    lint + lint self-test + generated tables + unit tests + scenarios
 #   make scenarios  every tests/scenarios/*.trs into build/scenarios/<name>/, outputs checked
-#   make gen     build/gen/tables.h (tools/gen_tables.py)
+#                against tests/golden/<name>.sha256
+#   make golden  play the scenarios and accept their WAV and PNG as the new golden hashes
+#   make gen     build/gen/tables.h (tools/gen_tables.py), build/gen/font.h (tools/gen_font.py)
 #   make lint    chip rules on firmware/src, SPDX headers everywhere
 #   make clean
 
@@ -27,7 +29,8 @@ EMCC = docker run --rm -v "$(CURDIR)":/src -w /src emscripten/emsdk:$(EMSDK_VERS
 endif
 
 PYTHON ?= python3
-GEN = build/gen/tables.h
+GEN = build/gen/tables.h build/gen/font.h
+FONT_BDF = assets/fonts/ter-u12n.bdf
 UNIT_SRC = $(wildcard tests/unit/test_*.c)
 UNIT_BIN = $(patsubst tests/unit/%.c,build/unit/%,$(UNIT_SRC))
 FIRMWARE_H = $(wildcard firmware/src/*/*.h)
@@ -36,7 +39,7 @@ HOST_SRC = host/trawler_host.c host/scenario.c host/wav.c host/png.c
 HOST_BIN = build/host/trawler
 SCENARIOS = $(wildcard tests/scenarios/*.trs)
 
-.PHONY: all host web serve gen test unit scenarios lint lint-selftest clean
+.PHONY: all host web serve gen test unit scenarios run-scenarios golden lint lint-selftest clean
 
 all: test
 
@@ -46,13 +49,19 @@ $(HOST_BIN): $(HOST_SRC) $(APP_SRC) $(wildcard host/*.h) $(FIRMWARE_H) $(GEN)
 	@mkdir -p build/host
 	$(CC) $(CFLAGS_COMMON) -DAPP_HOST -Ihost -o $@ $(HOST_SRC) $(APP_SRC)
 
-scenarios: $(HOST_BIN)
+run-scenarios: $(HOST_BIN)
 	@rm -rf build/scenarios
 	@for s in $(SCENARIOS); do \
 	    n=$$(basename $$s .trs); mkdir -p build/scenarios/$$n; \
 	    echo "scenario $$n"; $(HOST_BIN) $$s build/scenarios/$$n || exit 1; \
 	done
 	@$(PYTHON) tests/host/check_outputs.py build/scenarios
+
+scenarios: run-scenarios
+	@$(PYTHON) tests/host/golden.py check build/scenarios tests/golden
+
+golden: run-scenarios
+	@$(PYTHON) tests/host/golden.py accept build/scenarios tests/golden
 
 web:
 	@echo "make web: arrive en P0-05 (build wasm, emcc = $(EMCC))"; exit 1
@@ -68,8 +77,11 @@ lint-selftest:
 
 gen: $(GEN)
 
-$(GEN): tools/gen_tables.py
+build/gen/tables.h: tools/gen_tables.py
 	@$(PYTHON) tools/gen_tables.py $@
+
+build/gen/font.h: tools/gen_font.py $(FONT_BDF)
+	@$(PYTHON) tools/gen_font.py $(FONT_BDF) $@
 
 build/unit/%: tests/unit/%.c tests/unit/test.h $(FIRMWARE_H) $(GEN)
 	@mkdir -p build/unit
