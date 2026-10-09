@@ -2,7 +2,7 @@
 # Trawler build. Works with GNU Make 3.81 (the macOS one).
 #
 #   make host    native simulator: build/host/trawler SCRIPT.trs [OUTDIR] -> WAV + PNG
-#   make web     wasm build: build/emu/{index.html, worklet.js, keymap.js, trawler.wasm}
+#   make web     wasm build: build/emu/{index.html, worklet.js, keymap.js, panel.js, trawler.wasm}
 #                (emcc from the local emsdk at EMSDK_VERSION; DOCKER=1 uses the pinned image)
 #   make serve   make web, then serve build/emu on http://localhost:8080
 #   make test    lint + lint self-test + generated tables + unit tests + scenarios + wasm/native parity
@@ -42,7 +42,7 @@ HOST_SRC = host/trawler_host.c host/scenario.c host/wav.c host/png.c
 HOST_BIN = build/host/trawler
 SCENARIOS = $(wildcard tests/scenarios/*.trs)
 WEB_SRC = web/emu/trawler_web.c host/trawler_host.c
-WEB_PAGE = build/emu/index.html build/emu/worklet.js build/emu/keymap.js
+WEB_PAGE = build/emu/index.html build/emu/worklet.js build/emu/keymap.js build/emu/panel.js
 WASM = build/emu/trawler.wasm
 NODE ?= node
 
@@ -95,7 +95,7 @@ ifeq ($(PARITY),0)
 parity:
 	@echo "SKIP parité (PARITY=0) : règle 7 NON vérifiée, le wasm et le natif ne sont pas comparés"
 else
-parity: $(HOST_BIN) $(WASM) web/emu/worklet.js web/emu/keymap.js
+parity: $(HOST_BIN) $(WASM) web/emu/worklet.js web/emu/keymap.js web/emu/panel.js
 	@$(NODE) tests/host/emu_test.mjs
 endif
 

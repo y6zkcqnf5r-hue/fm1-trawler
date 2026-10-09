@@ -20,6 +20,8 @@
 | ADR-014 | 2026-10-10 | Le nom définitif est **Trawler** | Il se range avec les noms de bateaux de l'écosystème (Q-01) |
 | ADR-015 | 2026-10-10 | Le 2ᵉ bouton s'appelle **SEL** partout (`B_SEL`, scénarios `.trs`, panneau P0-06), comme il est imprimé sur l'appareil | La photo du produit le confirme. « SCL » est seulement le nom que lui donne le firmware Felucca (et son émulateur) |
 | ADR-016 | 2026-10-10 | `make test` construit toujours le wasm et lance la parité wasm/natif (`make parity`). Sans emcc, il échoue avec un message ; `make test PARITY=0` la saute en l'écrivant en clair | La règle 7 est non négociable : un saut silencieux masquerait une régression. Le build wasm prend une seconde |
+| ADR-017 | 2026-10-10 | Clavier d'ordinateur : **les chiffres jouent les touches noires** de la rangée haute ; **⌥ (Alt) + 1–8** tourne KNOB1–4 −/+ | Avec les chiffres pris par les potards, F#4…F#5 ne se joueraient plus au clavier, ni SEL + noire (annuler, rétablir, mute, solo). Clôt Q-17 |
+| ADR-018 | 2026-10-10 | Panneau : **clic droit (ou Ctrl-clic), ou appui long de 0,5 s au doigt, verrouille un bouton** ; pas Maj-clic | Maj est SEL au clavier : Maj + clic doit rester SEL + le contrôle. L'appui long ne verrouille que si rien d'autre n'a été touché, pour que tenir SEL d'un doigt et taper de l'autre reste momentané |
 
 ## Questions ouvertes
 
@@ -41,4 +43,3 @@
 | Q-14 | Le budget CPU de référence, en MAC par frame | P3-09 | D'après les moteurs de Felucca |
 | Q-15 | Le stockage sur l'appareil : les objets de Felucca sont limités à 3 840 octets, il faut le nôtre | P5-04 | |
 | Q-16 | Les touches noires portent des légendes gravées (`OP1`–`OP6`, `PIT`, `GLO`, `MONO`, `POLY`, voir `01_FM1_HARDWARE.md`). La palette `SEL` + touche noire doit-elle en tenir compte ? | P2-06 | Soit les ignorer (l'aide `SEL + HOME` dit quelle touche fait quoi), soit s'en servir de repère quand le sens colle (`GLO` : glide, `MONO`/`POLY` : une bascule, `PIT` : la hauteur). Le panneau P0-06 affiche ces légendes dans tous les cas, comme sur l'appareil |
-| Q-17 | Les chiffres du clavier d'ordinateur : notes ou potards ? La spec §4.5 met KNOB1–4 −/+ sur 1–8, mais les touches noires de la rangée haute (Q–O) tombent sur 2 3 4 6 7 9 | P0-06 | En P0-05, les chiffres jouent les notes (rien ne lit encore les potards). Options : potards ailleurs (pavé, `,` `.` …), ou rangée haute sans touches noires |

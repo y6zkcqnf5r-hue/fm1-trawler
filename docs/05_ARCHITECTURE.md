@@ -42,7 +42,7 @@ FM1/                               (ce dossier = la racine du repo)
 │  ├─ hal/  loader/  app.ld  crt0.S          (P5 : repris de Felucca)
 ├─ host/   trawler_host.c  scenario.c  wav.c  png.c
 ├─ web/
-│  ├─ emu/  trawler_web.c  worklet.js  index.html  panel.js (SVG + zones de clic)  keymap.js  storage.js  export.js
+│  ├─ emu/  trawler_web.c  worklet.js  index.html  panel.js (SVG + zones de clic)  keymap.js  storage.js (P2-08)  export.js (P4)
 │  └─ demos/ synthwave.trw  lofi.trw
 ├─ tests/
 │  ├─ unit/       test_fixed.c test_seq.c test_serial.c test_edit.c ...
@@ -163,12 +163,14 @@ Chaque message porte un champ `type` (`{type: "keys", mask}`), comme dans X0X ; 
 
 **Écran :** un canvas de 240×240, affiché en ×2 avec `image-rendering: pixelated`. Le RGB565 a ses octets inversés ; une table de 65 536 entrées le convertit en `ImageData`.
 
-**Clavier (`keymap.js`) :** par `KeyboardEvent.code`, donc par position quelle que soit la disposition (spec §4.5). Tout ce qui est maintenu est relâché sur `blur` et quand l'onglet se cache. P0-05 ne fait que les notes, OCT−/OCT+ et SEL ; le reste arrive avec le panneau (P0-06).
+**Clavier (`keymap.js`) :** par `KeyboardEvent.code`, donc par position quelle que soit la disposition (spec §4.5). Tout ce qui est maintenu est relâché sur `blur` et quand l'onglet se cache. Toute la spec §4.5 ; trois légendes (QWERTY, AZERTY Mac, AZERTY PC), choisies par l'utilisateur, sinon par `navigator.keyboard.getLayoutMap()` (Chrome, Edge), sinon par la langue du navigateur.
 
-**Panneau :**
-- Un dessin SVG du FM-1. Les zones de clic sont des `div` HTML transparents posés dessus, parce que le tactile sur du SVG est peu fiable sous iOS.
-- Capture du pointeur et multi-touch. Maj-clic ou clic droit verrouille un bouton enfoncé, ce qui permet de maintenir SEL.
-- Les potards se tournent en glissant ou à la molette.
+**Panneau (`web/emu/panel.js`) :**
+- Un dessin SVG du FM-1 (viewBox 1000×640, géométrie de X0X) : les 27 touches avec les légendes gravées des noires et les points entre les groupes, les 14 boutons, les 7 encodeurs, MASTER, et l'écran posé dans son cadre. Sur chaque contrôle, la touche d'ordinateur qui le joue (masquable).
+- Les zones de clic sont des `div` HTML transparents posés dessus, parce que le tactile sur du SVG est peu fiable sous iOS.
+- Capture du pointeur et multi-touch : une carte « qui tient quoi » par pointeur et par touche d'ordinateur, dont l'union part au worklet. **Clic droit (ou Ctrl-clic), ou appui long de 0,5 s au doigt, verrouille un bouton** ; un nouvel appui le libère. L'appui long ne verrouille que si rien d'autre n'a été touché pendant l'appui. Maj, qui est SEL, + clic = SEL + le contrôle (ADR-018).
+- Les potards se tournent en glissant verticalement (7 px par cran) ou à la molette ; MASTER va de 0 à 4096.
+- **Taille :** le panneau prend la largeur, mais tient toujours dans la hauteur de la fenêtre (au plus 1600 px de large). L'écran est net (`pixelated`) dès qu'il a un pixel réel par pixel du LCD, lissé en dessous. En portrait sur téléphone, la page propose de tourner l'appareil.
 - **Le dessin ne copie pas les photos de M-VAVE :** c'est une silhouette maison, aux proportions du FM-1.
 
 **Stockage :** IndexedDB, avec repli sur localStorage, chaque accès dans un `try/catch`.

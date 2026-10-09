@@ -201,22 +201,25 @@ Le rôle des touches dépend de la colonne sous le curseur. C'est **le grand ato
 
 ### 4.5 Le clavier de l'ordinateur (FM-1 virtuel, `web/emu/keymap.js`)
 
-| Touche d'ordinateur | Contrôle du FM-1 |
+Les touches sont prises **par position** (`KeyboardEvent.code`), données ici en QWERTY : sur un AZERTY, Z est la touche marquée W, Q celle marquée A, M celle marquée « , ». Seule la légende change de disposition (QWERTY, AZERTY Mac, AZERTY PC, au choix sur la page).
+
+| Touche d'ordinateur (position QWERTY) | Contrôle du FM-1 |
 | --- | --- |
-| ↑ ↓ | SELECT |
-| ← → | ALGORITHM |
+| Rangée Z X C V B N M, et S D F H J au-dessus | F3 à E4 : un piano à partir de F, comme les touches du FM-1 (Z = F3) |
+| Rangée Q W E R T Y U I O, et 2 3 4 6 7 9 au-dessus | F4 à G5 |
+| ↑ ↓ | SELECT −/+ |
+| ← → | ALGORITHM −/+ |
 | `[` `]` | PRESETS −/+ |
+| ⌥1 ⌥2 … ⌥7 ⌥8 (Alt sur PC) | KNOB1 −/+ … KNOB4 −/+ (ADR-017) |
 | Maj | SEL |
 | Entrée | EDIT |
 | Espace | PLAY |
-| `` ` `` | REC |
+| `` ` `` (ou la touche à gauche de 1 / à côté de Maj gauche selon le clavier) | REC |
 | `-` `=` | OCT− / OCT+ |
-| F1–F7 | HOME, ARP, SEQ, ENV, LFO, GLO, FX |
+| F1–F7 (avec `fn` sur Mac) | HOME, ARP, SEQ, ENV, LFO, GLO, FX |
 | Ctrl+S | SAVE |
-| Rangées Z–M et Q–U | Le clavier musical, disposition classique des trackers (Z = F3) |
-| Chiffres 1–8 | KNOB1–4 −/+ |
 
-Quand la fenêtre perd le focus, tout ce qui était maintenu est relâché. Le Web MIDI en entrée joue les notes comme les 27 touches.
+Les potards et les flèches suivent la répétition automatique du clavier ; les autres touches non. Quand la fenêtre perd le focus, tout ce qui était maintenu est relâché. Le Web MIDI en entrée joue les notes comme les 27 touches.
 
 **[PROTO]** Taper directement 0–9 et A–F sur le clavier de l'ordinateur dans les colonnes hexa serait plus naturel, mais ces touches servent déjà au clavier musical et aux potards. Deux options à tester en P1 : un mode « Verr. hexa », ou des potards à la molette uniquement. Cette correspondance de touches n'existe que dans `keymap.js` et ne touche pas au firmware.
 

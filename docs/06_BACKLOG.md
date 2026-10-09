@@ -48,13 +48,13 @@ Une app minimale :
 - CA : `make web serve`, puis un clic sur Démarrer : la touche Z du clavier d'ordinateur joue un sinus, et l'écran du FM-1 apparaît en ×2 dans un canvas.
 - CA : `emu_test.mjs` confirme que le wasm et le natif rendent les mêmes octets sur le scénario hello.
 
-**☐ P0-06 — Panneau SVG cliquable (M)**
+**☑ P0-06 — Panneau SVG cliquable (M)**
 
-Une silhouette du FM-1 avec ses 27 touches (et les légendes gravées des touches noires, voir `01_FM1_HARDWARE.md`), ses 14 boutons étiquetés, ses 7 encodeurs et le MASTER. Zones de clic en `div`, molette et glisser sur les potards, Maj-clic pour verrouiller, LED reflétées, mise en page desktop et mobile.
+Une silhouette du FM-1 avec ses 27 touches (et les légendes gravées des touches noires, voir `01_FM1_HARDWARE.md`), ses 14 boutons étiquetés, ses 7 encodeurs et le MASTER. Zones de clic en `div`, molette et glisser sur les potards, clic droit ou appui long pour verrouiller (ADR-018), LED reflétées, mise en page desktop et mobile.
 
 - CA : chaque contrôle visible agit sur le simulateur.
 - CA : utilisable au doigt sur iPad.
-- CA : la légende du clavier d'ordinateur a un sélecteur QWERTY / AZERTY (Mac et PC), qui ne change que l'affichage : les touches restent associées à leur position physique (`KeyboardEvent.code`). Safari et Firefox ne savent pas lire la disposition ; sur Chrome et Edge, `navigator.keyboard.getLayoutMap()` peut choisir la disposition par défaut. Trancher aussi Q-17 (les chiffres : notes ou potards).
+- CA : la légende du clavier d'ordinateur a un sélecteur QWERTY / AZERTY (Mac et PC), qui ne change que l'affichage : les touches restent associées à leur position physique (`KeyboardEvent.code`). Safari et Firefox ne savent pas lire la disposition ; sur Chrome et Edge, `navigator.keyboard.getLayoutMap()` peut choisir la disposition par défaut. Q-17 tranchée : ADR-017.
 
 **☐ P0-07 — CI et GitHub Pages (S)**
 

@@ -230,13 +230,26 @@ async function worklet() {
 async function keymap() {
   console.log("keymap.js");
   await import(pathToFileURL(path.join(ROOT, "web/emu/keymap.js")).href);
-  const KM = globalThis.TRAWLER_KEYMAP;
+  const KM = globalThis.TRAWLER_KEYMAP, { B, E } = KM;
   const idx = Object.values(KM.keys).sort((a, b) => a - b);
   ok(KM.keys.KeyZ === 0, "KeyZ = touche 0 (F3)");
   ok(idx.length === 27 && idx.every((k, i) => k === i), `les 27 touches, chacune une fois (${idx.length} codes)`);
-  ok(KM.buttons.Minus === 0 && KM.buttons.Equal === 1 && KM.buttons.ShiftLeft === 3 && KM.buttons.ShiftRight === 3,
-     "- = OCT− / OCT+, Maj = SEL");
-  ok(Object.keys(KM.keys).every((c) => !(c in KM.buttons)), "aucun code à la fois note et bouton");
+  const plain = [KM.keys, KM.buttons, KM.turns].flatMap(Object.keys);
+  ok(new Set(plain).size === plain.length, "sans modificateur, aucun code n'a deux rôles");
+  const btns = new Set(Object.values(KM.buttons).concat(Object.values(KM.ctrlButtons)));
+  ok(btns.size === 14, `les 14 boutons au clavier (${btns.size})`);
+  const roles = new Set(Object.values(KM.turns).concat(Object.values(KM.altTurns)).map(([r]) => r));
+  ok(roles.size === 7, `les 7 encodeurs au clavier (${roles.size})`);
+  ok(KM.buttons.Minus === B.OCTDN && KM.buttons.Equal === B.OCTUP && KM.buttons.ShiftLeft === B.SEL && KM.ctrlButtons.KeyS === B.SAVE,
+     "- = OCT− / OCT+, Maj = SEL, Ctrl+S = SAVE");
+  ok(KM.altTurns.Digit1.join() === `${E.K1},-1` && KM.altTurns.Digit8.join() === `${E.K4},1`, "⌥1 = KNOB1 −, ⌥8 = KNOB4 +");
+  const all = plain.concat(Object.keys(KM.ctrlButtons), Object.keys(KM.altTurns));
+  for (const [id, L] of Object.entries(KM.layouts)) {
+    const missing = all.filter((c) => !L.labels[c]);
+    ok(!missing.length, `${L.name} : une légende pour chaque touche${missing.length ? " (manque " + missing.join(" ") + ")" : ""}`);
+  }
+  ok(KM.label("azerty-mac", "KeyZ") === "W" && KM.label("azerty-pc", "KeyQ") === "A" && KM.label("azerty-mac", "KeyM") === ",",
+     "AZERTY : F3 sur W, F4 sur A, E4 sur la virgule");
 }
 
 await parity("hello");
