@@ -8,6 +8,8 @@ Chaque fichier source commence par `SPDX-License-Identifier: GPL-3.0-only`. Le c
 
 | Quoi | Origine | Licence |
 | --- | --- | --- |
+| Méthode de la table de hauteurs (une seule octave stockée, décalée pour les autres) : `tools/gen_tables.py`, `pitch_inc()` dans `firmware/src/dsp/fixed.h` | [Felucca](https://github.com/hugelton/Felucca) `tools/gen_tables.py`, Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments ; réécrit pour Trawler | GPL-3.0-only |
+| Forme de l'interface `firmware/src/app/plat.h` | [X0X](https://github.com/charlesvestal/fm1-x0x) et [FoMni](https://github.com/charlesvestal/fm1-fomni) de Charles Vestal ; réécrite pour Trawler | GPL-3.0-only |
 | Tout le reste | Trawler | GPL-3.0-only |
 
 ## Matériel tiers

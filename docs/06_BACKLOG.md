@@ -19,7 +19,7 @@ Le repo prend forme : git, LICENSE GPL-3.0, LICENSING.md, .gitignore (`build/`, 
 - CA : `make lint` passe sur un repo vide.
 - CA : `vendor-ref/` contient les 7 clones de référence (CLAUDE.md).
 
-**☐ P0-02 — Écrire `plat.h` et le point fixe (S)**
+**☑ P0-02 — Écrire `plat.h` et le point fixe (S)**
 
 `plat.h` reprend l'archi §3. `dsp/fixed.h` fournit Q15/Q12, `mul_q15`, `sat16` et une phase sur 32 bits. `tools/gen_tables.py` génère un sinus de 1024 points et la table note → incrément de phase.
 
