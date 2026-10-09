@@ -50,7 +50,7 @@ Une app minimale :
 
 **☐ P0-06 — Panneau SVG cliquable (M)**
 
-Une silhouette du FM-1 avec ses 27 touches, ses 14 boutons étiquetés, ses 7 encodeurs et le MASTER. Zones de clic en `div`, molette et glisser sur les potards, Maj-clic pour verrouiller, LED reflétées, mise en page desktop et mobile.
+Une silhouette du FM-1 avec ses 27 touches (et les légendes gravées des touches noires, voir `01_FM1_HARDWARE.md`), ses 14 boutons étiquetés, ses 7 encodeurs et le MASTER. Zones de clic en `div`, molette et glisser sur les potards, Maj-clic pour verrouiller, LED reflétées, mise en page desktop et mobile.
 
 - CA : chaque contrôle visible agit sur le simulateur.
 - CA : utilisable au doigt sur iPad.

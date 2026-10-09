@@ -17,6 +17,7 @@ Recherche du 9–10 octobre 2026. Chaque fait renvoie à sa source. Les points m
 | Audio | I2S vers un codec externe (modèle ⚠️ inconnu), 24 bits. **44,1 kHz** nominal (44 117,6 Hz en réalité). L'app rend en Q15 | [fm1_audio.h](https://raw.githubusercontent.com/hugelton/Felucca/main/firmware/hal/fm1_audio.h) |
 | Bloc audio | 256 frames toutes les 5,8 ms. On vise < 2,9 ms ⚠️ Felucca parle aussi de demi-tampons de 128 | [RULES.md](https://raw.githubusercontent.com/zvenson/dinghy/main/docs/RULES.md) |
 | Clavier | **27 touches F3–G5** (16 blanches, 11 noires), sans vélocité, avec LED | [API.md](https://raw.githubusercontent.com/zvenson/dinghy/main/docs/API.md) |
+| Légendes gravées | Sur le boîtier, donc **impossibles à changer par le firmware**. Touches noires, de gauche à droite : `OP1` `OP2` `OP3` · `OP4` `OP5` · `OP6` `PIT` `GLO` · `MONO` `POLY` · (F#5, isolée, sans légende). Touches blanches : aucune légende, de petits points entre les groupes d'octave. `PLAY/STOP` s'écrit sur deux lignes. Voir Q-16 | Photo du produit (2026-10-10) |
 | Boutons (14) | `OCT−` `OCT+` `FX` `SEL` `ENV` `LFO` `EDIT` `GLO` `HOME` `SAVE` `ARP` `SEQ` `PLAY` `REC`, avec LED | idem |
 | Encodeurs (7) | `SELECT` `ALGORITHM` `KNOB1` `KNOB2` `KNOB3` `KNOB4` `PRESETS`. Sans fin, sans bouton-poussoir | idem |
 | Potentiomètre | `MASTER` (volume, lu par l'ADC) | idem |
