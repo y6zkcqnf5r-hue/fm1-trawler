@@ -54,6 +54,7 @@ Une silhouette du FM-1 avec ses 27 touches (et les légendes gravées des touche
 
 - CA : chaque contrôle visible agit sur le simulateur.
 - CA : utilisable au doigt sur iPad.
+- CA : la légende du clavier d'ordinateur a un sélecteur QWERTY / AZERTY (Mac et PC), qui ne change que l'affichage : les touches restent associées à leur position physique (`KeyboardEvent.code`). Safari et Firefox ne savent pas lire la disposition ; sur Chrome et Edge, `navigator.keyboard.getLayoutMap()` peut choisir la disposition par défaut. Trancher aussi Q-17 (les chiffres : notes ou potards).
 
 **☐ P0-07 — CI et GitHub Pages (S)**
 
