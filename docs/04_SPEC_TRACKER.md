@@ -1,0 +1,311 @@
+# 04 — Spécification fonctionnelle de Trawler
+
+Tout ce qui est marqué **[PROTO]** est une proposition à valider dans le FM-1 virtuel avant de la figer. La story correspondante dans le backlog prévoit ce test.
+
+## 1. Le modèle de données
+
+Toutes les valeurs tiennent sur 1 octet, et l'éditeur les affiche en hexadécimal. La valeur `0xFF` veut dire « vide ».
+
+```
+SONG     128 lignes × 8 pistes  → n° de chain (00–7F) ou vide
+CHAIN    128 × 16 lignes        → (n° de phrase, transposition signée)
+PHRASE   128 × 16 pas           → NOTE, VOL, INSTR, FX1, FX2, FX3
+INSTR     32                    → type de moteur + paramètres + table par défaut
+TABLE     64 × 16 lignes        → TRANSP, VOL, FX1, FX2, FX3 ; plus TIC (vitesse)
+GROOVE    16 × 16 entrées       → nombre de ticks par pas
+MIXER     1                     → volume et panoramique par piste, mute/solo, envois, master
+PROJECT   1                     → nom, tempo, version du format
+```
+
+### Structures C (`firmware/src/tracker/model.h`)
+
+Elles sont proposées telles quelles. Les limites sont des `#define` qu'on peut ajuster si la mémoire l'exige.
+
+```c
+#define TRK_TRACKS     8
+#define TRK_SONG_ROWS  128
+#define TRK_CHAINS     128
+#define TRK_PHRASES    128
+#define TRK_INSTRS     32
+#define TRK_TABLES     64      /* 00–1F : table par défaut de l'instrument de même numéro ; 20–3F : libres */
+#define TRK_GROOVES    16
+#define TRK_ROWS       16
+#define TRK_EMPTY      0xFF
+#define NOTE_OFF       0xFE    /* affiché « OFF » : passe la voix en relâchement */
+
+typedef struct { uint8_t cmd, val; } fx_t;                    /* cmd 0 = aucune */
+typedef struct { uint8_t note, vol, instr; fx_t fx[3]; } step_t;   /* 9 o ; note 0–119 = C-0…B-9 */
+typedef struct { step_t s[TRK_ROWS]; } phrase_t;              /* 144 o */
+typedef struct { uint8_t phrase[TRK_ROWS]; int8_t transp[TRK_ROWS]; } chain_t;  /* 32 o */
+typedef struct { int8_t transp; uint8_t vol; fx_t fx[3]; } trow_t;               /* 8 o */
+typedef struct { trow_t r[TRK_ROWS]; uint8_t tic; } table_t;  /* 129 o */
+typedef struct { uint8_t ticks[TRK_ROWS]; } groove_t;         /* 16 o ; 0xFF = retour au début */
+typedef struct { uint8_t type; char name[8]; uint8_t table, tic; uint8_t p[53]; } instr_t; /* 64 o */
+```
+
+Un projet pèse environ **34 Kio** :
+
+| Bloc | Taille |
+| --- | --- |
+| Phrases | 18 432 o |
+| Tables | 8 256 o |
+| Chains | 4 096 o |
+| Instruments | 2 048 o |
+| Song | 1 024 o |
+| Grooves, mixer, en-tête | ~400 o |
+
+C'est sous le plafond de 48 Kio. En mémoire, le projet vit dans le pool. Le format sérialisé `.trw` est décrit au §8.
+
+## 2. Le séquenceur
+
+### Horloge
+
+- 24 ticks par noire. Par défaut, un pas dure 6 ticks, soit une double croche.
+- La durée d'un tick en échantillons est stockée en Q8 :
+
+  ```
+  spt_q8 = (44100 * 60 * 256) / (bpm * 24)
+  ```
+
+  Le calcul se fait en 32 bits (le numérateur, 677 376 000, tient dans un `uint32_t`) et seulement quand le tempo change. Il se simplifie en `30105600 / bpm`. Le quotient seul n'est pas exact pour tous les tempos : on garde aussi le reste (`30105600 % bpm`) dans un second accumulateur, qui ajoute 1/256 d'échantillon chaque fois qu'il dépasse `bpm`. Il n'y a donc aucune dérive (ADR-010).
+- **L'horloge est exacte à l'échantillon près :** le callback audio découpe son bloc de 256 frames aux frontières de tick, et traite les événements entre deux morceaux.
+- Tempo : 40 à 300 BPM, entier pour le MVP.
+
+### Lecture de la song
+
+- Chaque piste lit sa colonne indépendamment des autres : ligne de song → chain → pas de phrase.
+- Une chain se termine à sa première ligne vide ou après sa 16ᵉ ligne. La piste passe alors à la ligne de song suivante.
+- Quand une piste arrive sur une **cellule vide**, elle revient à la première ligne du bloc de lignes non vides où elle se trouve. Les pistes de longueurs différentes se décalent ainsi naturellement.
+- Selon la vue, PLAY lance :
+
+  | Vue | Ce qui joue |
+  | --- | --- |
+  | Song | La song à partir de la ligne du curseur |
+  | Chain | La chain en boucle |
+  | Phrase | La phrase en boucle |
+  | N'importe laquelle, avec SEL+PLAY | La song à partir de la ligne de song en cours |
+
+- La durée de chaque pas vient du **groove** de la piste : la valeur de l'entrée `i` donne le nombre de ticks du pas `i`.
+
+### Déclenchement d'un pas (au tick 0)
+
+1. Les commandes de séquence s'exécutent d'abord : `DEL`, `CHA` et `NTH` peuvent retarder ou annuler le pas.
+2. Ensuite, selon le contenu du pas :
+
+   | Le pas contient | Effet |
+   | --- | --- |
+   | NOTE et INSTR | La note se déclenche. Son instrument démarre sa table depuis la ligne 0 |
+   | NOTE sans INSTR | La hauteur change **sans redéclencher** la note (legato). Avec `PSL`, la note glisse |
+   | `OFF` | La voix passe en relâchement |
+   | VOL | Fixe le volume de la note (00–FF) |
+
+3. **Une voix par piste.** Une nouvelle note coupe la précédente avec un fondu de 2 ms. Au total, il n'y a donc jamais plus de 8 voix.
+4. Les commandes continues (`ARP`, `PBN`, `VIB`, `PSL`, `RET`) agissent à chaque tick.
+
+### Les tables
+
+- Une table avance d'une ligne tous les `TIC` ticks (01 = à chaque tick) et boucle après la ligne F, ou plus tôt avec `HOP`.
+- À chaque ligne, elle ajoute sa transposition à la note, multiplie le volume par VOL/0x80, et exécute ses FX comme une phrase.
+- Elle redémarre à chaque nouvelle note. `TBL xx` change la table d'un instrument depuis une phrase.
+
+## 3. Les vues
+
+L'écran fait 240×240 pixels :
+
+| Zone | Position | Contenu |
+| --- | --- | --- |
+| En-tête | y 0–19 | Nom de la vue et numéro, piste, ▶/■, tempo, octave du clavier, mini-carte |
+| Grille | y 24–215 | 16 lignes de 12 px |
+| Pied | y 216–239 | 4 cases colorées pour KNOB1–4 et une ligne d'aide |
+
+**[PROTO]** Police : 6×10 ou 8×12, à choisir en P1. En 8×12, une ligne de phrase fait 30 caractères, soit 240 px tout juste.
+
+```
+PHRASE 1A   T3  ▶ 120  O4   [map]
+0 C-4 7F 03 ARP37 CUT40 ---00
+1 --- -- -- ----- ----- -----
+2 D#4 60 03 PSL04 ----- -----
+...
+F OFF -- -- ----- ----- -----
+[CUT 40][RES 20][DEL 10][REV 30]
+```
+
+| Vue | Bouton | Contenu |
+| --- | --- | --- |
+| **Song** | `HOME` | 8 colonnes de n° de chain, ligne de lecture surlignée par piste, numéros de ligne en hexa |
+| **Chain** | `ARP` | 16 lignes : PHRASE, TRANSP |
+| **Phrase** | `SEQ` | 16 pas : NOTE, VOL, INSTR, FX1–FX3 |
+| **Instrument** | `ENV` | Type de moteur, nom, paramètres du moteur, filtre, ampli, enveloppes, LFO, envois, table et TIC |
+| **Table** | `LFO` | 16 lignes : TRANSP, VOL, FX1–FX3 ; TIC en en-tête |
+| **Groove** | `GLO` | 16 entrées de ticks, avec la durée totale de la phrase en ticks. Un deuxième appui ouvre la vue **Projet** : tempo, nom, emplacements, nouveau, charger, sauvegarder |
+| **Mixer** | `FX` | Volume et panoramique des 8 pistes, mute/solo, vumètres. Un deuxième appui ouvre **Effets** : chorus, delay, réverbe, tape, crush, limiteur |
+
+La **mini-carte** en haut à droite montre la position dans la chaîne de vues `Song → Chain → Phrase → Instr → Table`, pour naviguer en profondeur comme sur le M8.
+
+## 4. Les contrôles du FM-1
+
+### 4.1 Les encodeurs et le potentiomètre
+
+| Contrôle | Seul | Avec `SEL` maintenu |
+| --- | --- | --- |
+| `SELECT` | Curseur haut/bas (ligne) | Objet précédent/suivant du même type (phrase 1A → 1B) |
+| `ALGORITHM` | Curseur gauche/droite (colonne) | **Naviguer en profondeur** : à droite, on entre dans l'objet sous le curseur (cellule de song → chain → phrase → instrument → table) ; à gauche, on remonte |
+| `PRESETS` | Valeur sous le curseur ±1 (une note : ±1 demi-ton ; une commande FX : défile la liste) | ±0x10 (une note : ±1 octave) |
+| `KNOB1–4` | Les 4 cases du pied **[PROTO]**. En Song, Chain et Phrase : CUT, RES, envoi delay, envoi réverbe de l'instrument de la piste en cours, en direct. Avec REC, le geste s'écrit en FX dans le pas joué. Dans les autres vues : les 4 champs de la ligne sous le curseur | — |
+| `MASTER` | Volume général | — |
+
+### 4.2 Les boutons
+
+| Bouton | Seul | Avec `SEL` maintenu |
+| --- | --- | --- |
+| `SEL` | Modificateur, comme SHIFT | — |
+| `EDIT` | Sur une cellule vide : insère la dernière valeur. Sur un n° de chain ou de phrase vide, deux appuis prennent le **premier numéro libre** | **Efface** la cellule |
+| `PLAY` | Lire/arrêter selon la vue (§2) | Lire la song à partir de la ligne en cours |
+| `REC` | Enregistrement en direct : les touches jouées s'écrivent au pas le plus proche, et les potards en FX | — |
+| `OCT−` / `OCT+` | Octave du clavier (0–8) | Pas d'édition : de combien de lignes le curseur avance après une note (0–F) |
+| `HOME` `ARP` `SEQ` `ENV` `LFO` `GLO` `FX` | Aller directement à la vue (§3) | — |
+| `SAVE` | Sauvegarder le projet | — |
+| `SAVE` maintenu 1 s | Menu Projet | — |
+
+### 4.3 Le clavier (27 touches : 16 blanches, 11 noires)
+
+Le rôle des touches dépend de la colonne sous le curseur. C'est **le grand atout de Trawler face au M8**.
+
+| Colonne sous le curseur | Les touches seules |
+| --- | --- |
+| NOTE | Les 27 touches jouent la note, l'écrivent, et le curseur descend du pas d'édition. On entend la note pendant la saisie |
+| Valeur en hexa (VOL, INSTR, valeurs FX, n° de chain ou de phrase, paramètres) | **Les 16 touches blanches valent 0 à F**, de F3 à G5. On tape deux chiffres : le premier s'affiche `7_`, le second complète la valeur, et un délai d'1,5 s valide un seul chiffre **[PROTO]** |
+| Commande FX | Les touches blanches choisissent une catégorie de commandes ; PRESETS fait défiler |
+
+**`SEL` + une touche, quelle que soit la colonne :**
+
+- **`SEL` + une touche blanche de 1 à 8** (F3 à C4) : aller à la piste 1 à 8. En Chain et en Phrase, la vue montre ce que joue cette piste à la ligne de song en cours.
+- **`SEL` + une touche noire** : la palette d'actions, rappelée sur l'écran d'aide.
+
+  | Touche | Action | Touche | Action |
+  | --- | --- | --- | --- |
+  | F#3 | Copier | G#4 | Mode sélection (on étend avec SELECT/ALGORITHM) |
+  | G#3 | Couper | A#4 | Annuler |
+  | A#3 | Coller | C#5 | Rétablir |
+  | C#4 | Cloner (copie complète sous un nouveau numéro) | D#5 | Mute de la piste en cours |
+  | D#4 | Effacer | F#5 | Solo de la piste en cours |
+  | F#4 | Insérer une ligne (décale vers le bas) | | |
+
+### 4.4 Les LED
+
+| LED | Allumée quand |
+| --- | --- |
+| Touches blanches | Lecture : **la position du pas** sur 16 touches. Colonne hexa : les 16 touches, en clavier |
+| Touches noires | `SEL` maintenu : les actions possibles |
+| Boutons | Le bouton de la vue en cours est allumé ; PLAY quand ça joue ; REC en enregistrement |
+
+### 4.5 Le clavier de l'ordinateur (FM-1 virtuel, `web/emu/keymap.js`)
+
+| Touche d'ordinateur | Contrôle du FM-1 |
+| --- | --- |
+| ↑ ↓ | SELECT |
+| ← → | ALGORITHM |
+| `[` `]` | PRESETS −/+ |
+| Maj | SEL |
+| Entrée | EDIT |
+| Espace | PLAY |
+| `` ` `` | REC |
+| `-` `=` | OCT− / OCT+ |
+| F1–F7 | HOME, ARP, SEQ, ENV, LFO, GLO, FX |
+| Ctrl+S | SAVE |
+| Rangées Z–M et Q–U | Le clavier musical, disposition classique des trackers (Z = F3) |
+| Chiffres 1–8 | KNOB1–4 −/+ |
+
+Quand la fenêtre perd le focus, tout ce qui était maintenu est relâché. Le Web MIDI en entrée joue les notes comme les 27 touches.
+
+**[PROTO]** Taper directement 0–9 et A–F sur le clavier de l'ordinateur dans les colonnes hexa serait plus naturel, mais ces touches servent déjà au clavier musical et aux potards. Deux options à tester en P1 : un mode « Verr. hexa », ou des potards à la molette uniquement. Cette correspondance de touches n'existe que dans `keymap.js` et ne touche pas au firmware.
+
+## 5. Les instruments
+
+Paramètres communs à tous les types :
+
+| Groupe | Paramètres |
+| --- | --- |
+| Base | `TRN` transposition, `FIN` réglage fin, `VOL`, `PAN` |
+| Filtre | `FLT` (LP/HP/BP/OFF), `CUT`, `RES` |
+| Ampli | `DRV`, enveloppe d'ampli `ATK DEC SUS REL` |
+| Enveloppe 2 | `ATK DEC` + destination + quantité |
+| LFO | Forme, `RAT`, destination, quantité |
+| Envois | `SCH` chorus, `SDL` delay, `SRV` réverbe |
+| Table | `TBL`, `TIC` |
+
+| Type | Moteur | Paramètres propres | Pour |
+| --- | --- | --- | --- |
+| `WAV` | Oscillateur VA ou wavetable | `SHP` (scie, carré, pulse, triangle, sinus, bruit, 10 tables d'onde), `PW` ou `MRP` (forme d'onde ou morphing), `VOX` 1–3 oscillateurs décalés (supersaw léger), `DET`, `SUB` | Pads, leads et basses synthwave |
+| `FM4` | FM à 4 opérateurs, 8 algorithmes | `ALG`, `FB`, et pour chaque opérateur `RAT` (ratio), `LVL`, `DEC` | Rhodes et cloches lofi, basses FM |
+| `DRM` | Batterie synthétique | `MDL` (KICK, SNARE, HAT, CLAP, TOM, PERC), `TUN`, `DEC`, `TON`, `SNP` (bruit), `DRV`. La note décale la hauteur | Les rythmes |
+
+Plus tard : `SMP` (sampler), `MID` (MIDI Out), `FM6` (portage de msfa/Dexed, sous Apache-2.0, comme Felucca).
+
+## 6. Les commandes FX (MVP)
+
+Chaque commande s'écrit en 3 lettres suivies de 2 chiffres hexa. Les codes sont un `enum` dans `fx.h`, avec une table de noms. **On n'ajoute de nouveaux codes qu'à la fin de l'enum** : les projets sauvegardés stockent les numéros.
+
+| Catégorie | Code | Paramètre | Effet |
+| --- | --- | --- | --- |
+| Hauteur | `ARP` | xy | Arpège note, +x, +y demi-tons, un cran par tick |
+| | `ARC` | xy | Mode d'arpège x (montant, descendant, aller-retour, aléatoire), vitesse y ticks |
+| | `PSL` | xx | Glisse vers la note en xx ticks |
+| | `PBN` | xx | Pitch bend continu, signé (01–7F monte, 80–FF descend) |
+| | `VIB` | xy | Vibrato : vitesse x, profondeur y |
+| | `PIT` | xx | Décalage de hauteur signé, en demi-tons |
+| | `FIN` | xx | Réglage fin signé |
+| Temps et hasard | `DEL` | xx | Retarde le pas de xx ticks |
+| | `KIL` | xx | Coupe la note après xx ticks |
+| | `RET` | xy | Redéclenche toutes les y ticks, le volume variant de x (signé sur 4 bits) |
+| | `CHA` | xx | Probabilité que le pas joue (xx/FF) |
+| | `NTH` | xy | Joue seulement au tour y d'un cycle de x tours |
+| | `RND` | xx | Ajoute un aléa de 0 à xx à la valeur de la commande placée à gauche |
+| | `HOP` | xx | Saute au pas ou à la ligne xx |
+| Structure | `TBL` | xx | Change la table de l'instrument |
+| | `TIC` | xx | Vitesse de la table |
+| | `THO` | xx | Saut dans la table |
+| | `GRV` | xx | Groove de la piste |
+| | `TPO` | xx | Tempo en BPM (28–FF ; au-delà de 255, on le règle dans la vue Projet) |
+| Son | `VOL` | xx | Décalage de volume signé |
+| | `CUT` | xx | Fréquence de coupure |
+| | `RES` | xx | Résonance |
+| | `FLT` | xx | Type de filtre |
+| | `PAN` | xx | Panoramique |
+| | `DRV` | xx | Saturation |
+| Envois | `SCH` | xx | Envoi chorus |
+| | `SDL` | xx | Envoi delay |
+| | `SRV` | xx | Envoi réverbe |
+| Global | `MDT` | xx | Temps du delay, en pas |
+| | `MDF` | xx | Réinjection du delay |
+| | `MRS` | xx | Taille de la réverbe |
+| | `MCR` | xx | Bitcrush du master |
+| | `MTP` | xx | Saturation tape du master |
+
+Ce vocabulaire de 3 lettres est commun aux trackers. **On ne reprend pas les textes d'aide du M8 :** l'aide intégrée de Trawler est rédigée de zéro.
+
+## 7. Le mixer et les effets (budget mémoire dans le pool)
+
+| Bloc | Réglages | Mémoire |
+| --- | --- | --- |
+| Chorus stéréo | Vitesse, profondeur | ~4 Kio |
+| Delay mono vers stéréo | Temps synchronisé, de 1/16 à 3/4 de mesure, au plus 0,75 s en 16 bits ; réinjection ; passe-haut | ~66 Kio |
+| Réverbe | Freeverb allégé ; taille, amortissement | ~32 Kio |
+| Master | Volume, saturation tape, bitcrush (bits et fréquence), limiteur | — |
+| **Total des effets** | | **~102 Kio sur 336** |
+
+Le projet (~34 Kio) et les tables d'onde générées (~16 Kio) tiennent dans le reste.
+
+## 8. La sauvegarde et le format `.trw`
+
+- **En-tête :** `"TRW1"`, version du format en `uint16`, taille, CRC32. Viennent ensuite des blocs TLV : `SONG`, `CHNS`, `PHRS`, `INST`, `TABL`, `GROV`, `MIXR`, `PROJ`.
+- On écrit seulement les objets non vides : un n° sur 1 octet, puis les données.
+- On peut ajouter des champs ; les anciens projets restent lisibles.
+- La sérialisation et la désérialisation sont du C commun au web et à l'appareil (`tracker/serial.c`), avec un test aller-retour.
+- **Dans le navigateur :** sauvegarde automatique dans IndexedDB toutes les 5 s si le projet a changé, et 8 emplacements. La page, en dehors du firmware, propose aussi export et import `.trw`, export WAV, et chargement des démos.
+- **Sur l'appareil (P5) :** emplacements en flash, écrits seulement à l'arrêt, en double copie avec CRC (comme zp12).
+
+## 9. Le démarrage
+
+1. Au premier lancement, la démo synthwave se charge et la vue Song s'affiche, curseur en 00. Il suffit d'appuyer sur PLAY : le son vient tout de suite.
+2. L'aide en surimpression s'ouvre en maintenant **SEL + HOME**. Elle montre une carte des contrôles de la vue en cours, rendue par le firmware lui-même, donc identique sur le web et sur l'appareil.

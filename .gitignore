@@ -1,0 +1,7 @@
+build/
+vendor-ref/
+node_modules/
+.DS_Store
+*.wav
+!tests/golden/*.wav
+.claude/settings.local.json
