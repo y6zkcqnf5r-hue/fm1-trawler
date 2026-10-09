@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# hello: a key held, a recording, a screenshot (P0-03)
+wait 100
+key C4 down
+wait 50
+expect keys 0x80
+expect lit_keys 0x80
+wav hello.wav 500
+expect wav_frames >21000
+shot hello.png
+key C4 up
+wait 50
+expect lit_keys 0
+# buttons light while held
+tap PLAY
+expect lit_buttons 0
+press SEL
+wait 20
+expect lit_buttons 0x8
+leds
+release SEL
+# the placeholder app does not read the encoders: the detents wait for it
+turn K1 3
+turn K1 -1 10
+expect enc K1 2
+expect pixel 0 0 0x10A2

@@ -176,6 +176,52 @@ On reprend celui de X0X et FoMni :
 | Taille | `tools/size_report.py` | RAM, pool et taille du projet sous les budgets ; à terme, la taille du code compilé pour l'appareil |
 | CI | GitHub Actions | `make lint test web`, puis déploiement de `build/emu` sur GitHub Pages |
 
+### Le simulateur hôte et le format `.trs`
+
+Le simulateur se découpe en quatre fichiers :
+
+| Fichier | Rôle | Builds |
+| --- | --- | --- |
+| `host/trawler_host.c` | Implémente `plat.h` sur l'état `struct host` (`host/host.h`), et fournit l'horloge `host_run_ms()` | Natif et wasm : sans stdio ni fichier |
+| `host/scenario.c` | Le lanceur de scénarios | Natif seulement |
+| `host/wav.c` | Écrit les WAV | Natif seulement |
+| `host/png.c` | Écrit les PNG | Natif seulement |
+
+**L'horloge, en entiers :**
+- chaque ms ajoute 44 100 à un accumulateur ;
+- chaque fois qu'il atteint 256 000, l'app rend un bloc de 256 frames ;
+- `app_frame()` tourne toutes les 16 ms.
+
+La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : le WAV en natif, l'anneau du worklet en web.
+
+**La commande :** `build/host/trawler SCRIPT.trs [OUTDIR]`. Elle sort avec 0 si tout passe, 1 si un `expect` échoue, 2 si le script est faux. `make scenarios` joue chaque `tests/scenarios/*.trs` dans `build/scenarios/<nom>/`, puis `tests/host/check_outputs.py` valide les PNG et les WAV produits.
+
+**Le format :** une commande par ligne. Un `#` en début de mot ouvre un commentaire (`C#4` n'en est pas un).
+
+| Commande | Effet |
+| --- | --- |
+| `wait MS` | Fait tourner l'appareil MS ms |
+| `press BTN` / `release BTN` | Maintient ou relâche le bouton, puis avance de 2 ms |
+| `tap BTN` | Appui de 40 ms, puis 40 ms de pause |
+| `key K [down\|up]` | Sans argument : appui de 60 ms, puis 30 ms de pause |
+| `turn ENC N [MS]` | N crans signés, un tous les MS ms (80 par défaut) |
+| `master N` | Potard MASTER, de 0 à 4096 |
+| `midi S D1 D2` | Message USB-MIDI entrant (en hexa) |
+| `wav FICHIER [MS]` | Commence l'enregistrement ; avec MS, enregistre MS ms puis s'arrête |
+| `wavstop` | Arrête l'enregistrement (fait aussi en fin de script) |
+| `shot FICHIER.png` | Capture l'écran |
+| `leds` | Affiche les LED allumées |
+| `peakreset` | Remet le pic de sortie à zéro |
+| `echo TEXTE` | Affiche une trace |
+| `expect QUOI [ARGS] VAL` | Vérifie une sonde. VAL vaut `N`, `0xN`, `<N` ou `>N` |
+
+**Les noms :**
+- **BTN :** `OCT- OCT+ FX SEL ENV LFO EDIT GLO HOME SAVE ARP SEQ PLAY REC`.
+- **ENC :** `SELECT ALGO K1 K2 K3 K4 PRESETS`.
+- **K :** `0` à `26` (0 = F3), `w0` à `w15` pour les touches blanches, `b0` à `b10` pour les noires, ou une note de `F3` à `G5` (`C4`, `C#4` ou `C-4`).
+
+**Les sondes de `expect` :** `ms`, `buttons`, `keys`, `enc ENC` (les crans que l'app n'a pas encore lus), `lit_buttons`, `lit_keys`, `dim_keys`, `play_red`, `blits`, `pixel X Y` (RGB565), `wav_frames`, `peak`, `midi_out`, `store_writes`. Les stories suivantes ajouteront l'état de l'app (`cell`, `view`, …) à la table `PROBES` de `host/scenario.c`.
+
 ## 7. Le budget CPU sans appareil (modèle de coût)
 
 Tant qu'on n'a pas de FM-1, on ne peut pas mesurer le CPU réel. On applique donc ces garde-fous :

@@ -26,7 +26,7 @@ Le repo prend forme : git, LICENSE GPL-3.0, LICENSING.md, .gitignore (`build/`, 
 - CA : tests unitaires de `fixed.h` (saturation, arrondis).
 - CA : les tables sont générées dans `build/gen/`.
 
-**☐ P0-03 — Simulateur hôte et scénarios (M)**
+**☑ P0-03 — Simulateur hôte et scénarios (M)**
 
 `host/trawler_host.c` implémente `plat.h` : framebuffer, masques des boutons et touches maintenus, accumulateurs d'encodeurs, stockage en mémoire, file MIDI, horloge `run_ms()` (blocs de 256, `app_frame` toutes les 16 ms). Il lit les scénarios `.trs` et écrit des WAV et des PNG.
 

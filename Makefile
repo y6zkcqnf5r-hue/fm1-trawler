@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Trawler build. Works with GNU Make 3.81 (the macOS one).
 #
-#   make host    native simulator: build/host/trawler           (P0-03)
+#   make host    native simulator: build/host/trawler SCRIPT.trs [OUTDIR] -> WAV + PNG
 #   make web     wasm build: build/emu/                         (P0-05; DOCKER=1 uses the pinned image)
 #   make serve   serve build/emu on http://localhost:8080       (P0-05)
-#   make test    lint + lint self-test + generated tables + unit tests
+#   make test    lint + lint self-test + generated tables + unit tests + scenarios
+#   make scenarios  every tests/scenarios/*.trs into build/scenarios/<name>/, outputs checked
 #   make gen     build/gen/tables.h (tools/gen_tables.py)
 #   make lint    chip rules on firmware/src, SPDX headers everywhere
 #   make clean
@@ -30,13 +31,28 @@ GEN = build/gen/tables.h
 UNIT_SRC = $(wildcard tests/unit/test_*.c)
 UNIT_BIN = $(patsubst tests/unit/%.c,build/unit/%,$(UNIT_SRC))
 FIRMWARE_H = $(wildcard firmware/src/*/*.h)
+APP_SRC = $(filter-out %/plat_fm1.c,$(wildcard firmware/src/*/*.c))
+HOST_SRC = host/trawler_host.c host/scenario.c host/wav.c host/png.c
+HOST_BIN = build/host/trawler
+SCENARIOS = $(wildcard tests/scenarios/*.trs)
 
-.PHONY: all host web serve gen test unit lint lint-selftest clean
+.PHONY: all host web serve gen test unit scenarios lint lint-selftest clean
 
 all: test
 
-host:
-	@echo "make host: arrive en P0-03 (simulateur hôte)"; exit 1
+host: $(HOST_BIN)
+
+$(HOST_BIN): $(HOST_SRC) $(APP_SRC) $(wildcard host/*.h) $(FIRMWARE_H) $(GEN)
+	@mkdir -p build/host
+	$(CC) $(CFLAGS_COMMON) -DAPP_HOST -Ihost -o $@ $(HOST_SRC) $(APP_SRC)
+
+scenarios: $(HOST_BIN)
+	@rm -rf build/scenarios
+	@for s in $(SCENARIOS); do \
+	    n=$$(basename $$s .trs); mkdir -p build/scenarios/$$n; \
+	    echo "scenario $$n"; $(HOST_BIN) $$s build/scenarios/$$n || exit 1; \
+	done
+	@$(PYTHON) tests/host/check_outputs.py build/scenarios
 
 web:
 	@echo "make web: arrive en P0-05 (build wasm, emcc = $(EMCC))"; exit 1
@@ -62,7 +78,7 @@ build/unit/%: tests/unit/%.c tests/unit/test.h $(FIRMWARE_H) $(GEN)
 unit: $(UNIT_BIN)
 	@for t in $(UNIT_BIN); do $$t || exit 1; done
 
-test: lint lint-selftest unit
+test: lint lint-selftest unit scenarios
 
 clean:
 	rm -rf build
