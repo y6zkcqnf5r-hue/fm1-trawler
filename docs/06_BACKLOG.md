@@ -41,7 +41,7 @@ Une app minimale :
 
 - CA : golden WAV et PNG enregistrés.
 
-**☐ P0-05 — Build wasm et worklet (M)**
+**☑ P0-05 — Build wasm et worklet (M)**
 
 `trawler_web.c`, `worklet.js` et `index.html`, selon l'archi §4–5. Emsdk figé dans Docker.
 

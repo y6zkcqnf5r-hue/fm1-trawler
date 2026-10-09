@@ -9,7 +9,7 @@ Le même code de `firmware/src/` se compile pour trois cibles, qui ne diffèrent
 | Cible | Implémentation de `plat.h` | Compilateur | Rôle |
 | --- | --- | --- | --- |
 | **Hôte** | `host/trawler_host.c` | `cc` (clang/gcc) | Simulateur scripté : tests, WAV, PNG |
-| **Web** | `web/emu/trawler_web.c`, qui inclut le fichier hôte | `emcc` | Le FM-1 virtuel dans le navigateur |
+| **Web** | `web/emu/trawler_web.c`, compilé avec le fichier hôte | `emcc` | Le FM-1 virtuel dans le navigateur |
 | **Appareil** (P5) | `firmware/src/app/plat_fm1.c`, au-dessus de `firmware/hal/` (repris de Felucca) | clang JieLi pi32v2 (Docker) | Le `.fwsc` |
 
 ```
@@ -114,10 +114,13 @@ CFLAGS_COMMON = -std=gnu99 -O2 -Wall -Wextra -Werror=double-promotion -ffp-contr
                 -Ifirmware/src -Ibuild/gen
 
 host:  cc $(CFLAGS_COMMON) -DAPP_HOST host/trawler_host.c <sources> -o build/host/trawler
-web:   docker run --rm -v $(PWD):/src emscripten/emsdk:<VERSION_FIGÉE> \
-         emcc $(CFLAGS_COMMON) -DAPP_HOST -DAPP_WEB --no-entry -sSTANDALONE_WASM -sFILESYSTEM=0 \
-         -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=33554432 -o build/emu/trawler.wasm web/emu/trawler_web.c <sources>
+web:   emcc $(CFLAGS_COMMON) -DAPP_HOST -DAPP_WEB -Ihost --no-entry -sSTANDALONE_WASM -sFILESYSTEM=0 \
+         -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=33554432 -o build/emu/trawler.wasm \
+         web/emu/trawler_web.c host/trawler_host.c <sources>
 ```
+
+- **emcc :** celui de l'emsdk local (`~/emsdk`, version 6.0.11, ADR-011), ou celui de l'image `emscripten/emsdk:6.0.11` avec `DOCKER=1`. Sans emcc, `make web` s'arrête avec un message qui dit quoi installer.
+- `make web` copie aussi `index.html`, `worklet.js` et `keymap.js` dans `build/emu/` ; `make serve` sert ce dossier sur `http://127.0.0.1:8080`.
 
 - **Sans glue Emscripten :** le worklet instancie le `.wasm` avec un faux WASI (un `Proxy` qui renvoie 0), comme X0X.
 - **Exports :** chaque export est marqué `__attribute__((used, visibility("default")))` :
@@ -125,12 +128,12 @@ web:   docker run --rm -v $(PWD):/src emscripten/emsdk:<VERSION_FIGÉE> \
   | Groupe | Exports |
   | --- | --- |
   | Démarrage | `web_boot()` |
-  | Audio | `web_render(n)`, `web_out_l()`, `web_out_r()` |
+  | Audio | `web_render(n)` (n ≤ 1024), `web_out_l()`, `web_out_r()` (des `int16`, la page convertit en float), `web_avail()`, `web_run_ms(ms)` (instance muette et test) |
   | Entrées | `web_buttons(mask)`, `web_keys(mask)`, `web_enc(role, n)`, `web_master(v)`, `web_midi(st, d1, d2)` |
-  | Écran et LED | `web_fb()`, `web_blits()`, `web_lit_buttons()`, `web_lit_keys()`, `web_dim_keys()` |
-  | Stockage | `web_store_ptr(slot)`, `web_store_len(slot)`, `web_store_set_len(slot, n)`, `web_store_writes()` |
+  | Écran et LED | `web_fb()`, `web_blits()`, `web_lit_buttons()`, `web_lit_keys()`, `web_dim_keys()`, `web_play_red()` |
+  | Stockage | `web_slots()`, `web_store_max()`, `web_store_ptr(slot)`, `web_store_len(slot)`, `web_store_set_len(slot, n)`, `web_store_writes()` |
   | Fichiers | `web_export_wav(...)` (P4) |
-  | Diagnostics | `web_cpu()`, `web_now()` |
+  | Diagnostics | `web_cpu()`, `web_now()`, `web_peak()` |
 
 - **Lint (`tools/lint.sh`) :**
   - interdit `float`, `double`, `malloc`, `printf`, `#include <math.h>`, `/ … int64` (heuristique), `APP_WEB` et `APP_HOST` dans `firmware/src` ;
@@ -141,22 +144,26 @@ web:   docker run --rm -v $(PWD):/src emscripten/emsdk:<VERSION_FIGÉE> \
 
 On reprend celui de X0X et FoMni :
 
-- **De la page au worklet :**
-  - `{load, wasm, store}` ;
-  - `{buttons, mask}` et `{keys, mask}` : chaque changement passe par une file et reste maintenu au moins **24 ms** en temps de l'appareil, pour franchir l'anti-rebond ;
-  - `{enc, role, n}`, `{master, v}`, `{midi, data}`, `{visible, bool}`.
-- **Du worklet à la page :**
-  - `{ready}` ;
-  - puis environ 30 fois par seconde (4 si l'onglet est caché) : `{frame, fb?, buttons, keys, dim, store?, cpu}`. Le tampon `fb` n'est transféré (`Uint16Array`) que si le compteur de blits a changé.
+Chaque message porte un champ `type` (`{type: "keys", mask}`), comme dans X0X ; le détail est en tête de `web/emu/worklet.js`.
 
-**Horloge :** `web_render(128)` fait avancer le temps de l'appareil. Il appelle `app_audio` par blocs de 256 frames, comme sur l'appareil, en remplissant un anneau, et `app_frame` toutes les 16 ms.
+- **De la page au worklet :**
+  - `{load, wasm, store, master}` ;
+  - `{buttons, mask}` et `{keys, mask}` : une file par type ; chaque changement reste maintenu au moins **24 ms** en temps de l'appareil (`web_now()`), pour franchir l'anti-rebond. Un appui plus court que la page ne sait le dire arrive donc quand même à l'app ;
+  - `{enc, role, n}`, `{master, value}`, `{midi, data: [st, d1, d2]}`, `{visible, value}`.
+- **Du worklet à la page :**
+  - `{ready, rate}`, ou `{error, message}` ;
+  - puis environ 30 fois par seconde (4 si l'onglet est caché) : `{frame, fb?, buttons, keys, dim, red, store?, cpu, load?, now, frames, nz, peak}`. Le tampon `fb` n'est transféré (`Uint16Array`) que si le compteur de blits a changé. `now`, `frames`, `nz` (échantillons non nuls) et `peak` servent au diagnostic.
+
+**Horloge :** `web_render(n)` fait avancer le temps de l'appareil. `host_audio_sink` remplit un anneau `int16` de 4096 frames dans `trawler_web.c` ; tant qu'il manque des frames, `web_render` appelle `host_run_ms(1)`, qui rend l'app par blocs de 256 frames, comme sur l'appareil, et appelle `app_frame` toutes les 16 ms. Aucune horloge réelle n'entre : le temps de l'appareil ne dépend que des frames consommées, il ne peut pas dériver (vérifié sur 10 min par `emu_test.mjs`). Il avance par sauts d'un bloc (< 6 ms).
 
 **Audio :**
 - La page crée `new AudioContext({sampleRate: 44100})`.
-- Si le navigateur impose une autre fréquence, le worklet rééchantillonne de façon linéaire (comme Salt) au lieu de jouer faux.
+- Si le navigateur impose une autre fréquence, le worklet rééchantillonne de façon linéaire (comme Salt) au lieu de jouer faux. La phase est un entier (`acc += 44100` par frame de sortie, une frame source de plus à chaque `sampleRate`) : un quantum consomme exactement `floor((acc + 128·44100) / sampleRate)` frames, d'où un seul `web_render` par quantum et aucune dérive.
 - Rien ne joue avant un clic : c'est la règle des navigateurs. D'ici là, une instance muette affiche déjà l'écran (comme ChoralRoot).
 
-**Écran :** un canvas de 240×240, affiché en ×2 avec `image-rendering: pixelated`. Le RGB565 a ses octets inversés ; une table de correspondance le convertit en `ImageData`.
+**Écran :** un canvas de 240×240, affiché en ×2 avec `image-rendering: pixelated`. Le RGB565 a ses octets inversés ; une table de 65 536 entrées le convertit en `ImageData`.
+
+**Clavier (`keymap.js`) :** par `KeyboardEvent.code`, donc par position quelle que soit la disposition (spec §4.5). Tout ce qui est maintenu est relâché sur `blur` et quand l'onglet se cache. P0-05 ne fait que les notes, OCT−/OCT+ et SEL ; le reste arrive avec le panneau (P0-06).
 
 **Panneau :**
 - Un dessin SVG du FM-1. Les zones de clic sont des `div` HTML transparents posés dessus, parce que le tactile sur du SVG est peu fiable sous iOS.
@@ -173,7 +180,7 @@ On reprend celui de X0X et FoMni :
 | Unitaires | `tests/unit/*.c` (mini-framework maison) | Point fixe, horloge Q8 sans dérive sur 10 min, groove, chaque commande FX, aller-retour `.trw`, annuler/rétablir |
 | Scénarios | `build/host/trawler tests/scenarios/x.trs out/` | Parcours d'interface : `press SEQ`, `turn PRESETS 3`, `key 12`, `wait 500`, `shot`, `wav 2000`, `expect cell 0 note C-4` |
 | Golden | `tests/golden/*.sha256` | Le WAV et le PNG d'un scénario ne changent pas sans qu'on le veuille (`make golden` pour les accepter) |
-| Parité | `node tests/host/emu_test.mjs` | Le wasm et le natif rendent les mêmes octets sur 10 s de démo |
+| Parité | `make parity` (`node tests/host/emu_test.mjs`, dans `make test`) | Le wasm rejoue le journal d'un scénario (`trawler --events`) : mêmes WAV que les golden et que le natif, même écran à chaque capture ; l'horloge sur 10 min ; `worklet.js` lui-même sous des bouchons, à 44,1 et 48 kHz ; `keymap.js` |
 | Taille | `tools/size_report.py` | RAM, pool et taille du projet sous les budgets ; à terme, la taille du code compilé pour l'appareil |
 | CI | GitHub Actions | `make lint test web`, puis déploiement de `build/emu` sur GitHub Pages |
 
@@ -195,7 +202,7 @@ Le simulateur se découpe en quatre fichiers :
 
 La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : le WAV en natif, l'anneau du worklet en web.
 
-**La commande :** `build/host/trawler SCRIPT.trs [OUTDIR]`. Elle sort avec 0 si tout passe, 1 si un `expect` échoue, 2 si le script est faux. `make scenarios` joue chaque `tests/scenarios/*.trs` dans `build/scenarios/<nom>/`, puis `tests/host/check_outputs.py` valide les PNG et les WAV produits, et `tests/host/golden.py check` compare leurs hashes à `tests/golden/<nom>.sha256`.
+**La commande :** `build/host/trawler [--events FICHIER] SCRIPT.trs [OUTDIR]`. Avec `--events`, le lanceur écrit aussi ce que le script a fait à l'appareil, une ligne par action (`b MASK`, `k MASK`, `m V`, `e ROLE N`, `midi PKT`, `run MS`, `wav on FICHIER`, `wav off`, `shot FICHIER FNV`) : `emu_test.mjs` le rejoue sur le wasm, sans second parseur de `.trs`. Elle sort avec 0 si tout passe, 1 si un `expect` échoue, 2 si le script est faux. `make scenarios` joue chaque `tests/scenarios/*.trs` dans `build/scenarios/<nom>/`, puis `tests/host/check_outputs.py` valide les PNG et les WAV produits, et `tests/host/golden.py check` compare leurs hashes à `tests/golden/<nom>.sha256`.
 
 **Les golden :**
 - un fichier par scénario, au format de `shasum -a 256` (`<hex>  <fichier>`, trié par nom) ;

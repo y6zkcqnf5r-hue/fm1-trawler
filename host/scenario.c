@@ -2,7 +2,9 @@
 /* The scenario runner: the whole app on a simulated FM-1, driven by a .trs script. Audio goes to
  * WAV files, the screen to PNGs. Language from FoMni's host/omni_host.c (Charles Vestal).
  *
- *   trawler SCRIPT [OUTDIR]       exit 0 = all expectations met, 1 = some failed, 2 = script error
+ *   trawler [--events FILE] SCRIPT [OUTDIR]
+ *                                 exit 0 = all expectations met, 1 = some failed, 2 = script error
+ *   --events FILE                 also write what the script did to the device (see "event journal")
  *
  * One command per line, # at a word start begins a comment. Files are written in OUTDIR (default ".").
  *   wait MS                       run the device for MS ms
@@ -35,6 +37,46 @@ static const char *const BTN_N[B_COUNT] = {"OCT-", "OCT+", "FX", "SEL", "ENV", "
 static const char *const ENC_N[EN_COUNT] = {"SELECT", "ALGO", "K1", "K2", "K3", "K4", "PRESETS"};
 
 static int lineno;
+
+/* ------------------------------------------------------ event journal --- */
+/* --events FILE: what the script did to the device, one line each, so that tests/host/emu_test.mjs
+ * replays it on the wasm build without a second .trs parser (this file stays the only one):
+ *   b MASK | k MASK | m V      held buttons, held keys, MASTER: written when changed, before a run
+ *   e ROLE N | midi PKT        detents, a USB-MIDI packet: written when injected
+ *   run MS                     run(MS)
+ *   wav on FILE | wav off      a recording starts, stops
+ *   shot FILE FNV              the screen: FNV-1a 32 of host.fb's bytes */
+static FILE *ev;
+static uint32_t ev_buttons, ev_keys, ev_master;
+
+static void run(uint32_t ms)
+{
+    if (ev) {
+        if (host.buttons != ev_buttons)
+            fprintf(ev, "b 0x%X\n", ev_buttons = host.buttons);
+        if (host.keys != ev_keys)
+            fprintf(ev, "k 0x%X\n", ev_keys = host.keys);
+        if (host.master != ev_master)
+            fprintf(ev, "m %u\n", ev_master = host.master);
+        fprintf(ev, "run %u\n", ms);
+    }
+    host_run_ms(ms);
+}
+
+static void rec_stop(void)
+{
+    if (ev && wav_recording())
+        fprintf(ev, "wav off\n");
+    wav_close();
+}
+
+static uint32_t fnv32(const uint8_t *p, uint32_t n)
+{
+    uint32_t h = 2166136261u;
+    while (n--)
+        h = (h ^ *p++) * 16777619u;
+    return h;
+}
 
 static int bad(const char *what, const char *s)
 {
@@ -203,13 +245,23 @@ static void leds(void)
 int main(int argc, char **argv)
 {
     char line[512], path[1024], *tok[8];
-    const char *dir = argc > 2 ? argv[2] : ".";
+    const char *dir;
     int ntok, fails = 0;
     FILE *sc;
+    if (argc > 2 && !strcmp(argv[1], "--events")) {
+        ev = fopen(argv[2], "w");
+        if (!ev) {
+            perror(argv[2]);
+            return 2;
+        }
+        argc -= 2;
+        argv += 2;
+    }
     if (argc < 2) {
-        fprintf(stderr, "usage: trawler SCRIPT [OUTDIR]\n");
+        fprintf(stderr, "usage: trawler [--events FILE] SCRIPT [OUTDIR]\n");
         return 2;
     }
+    dir = argc > 2 ? argv[2] : ".";
     sc = fopen(argv[1], "r");
     if (!sc) {
         perror(argv[1]);
@@ -217,6 +269,9 @@ int main(int argc, char **argv)
     }
     host_audio_sink = wav_write;
     host_boot();
+    ev_buttons = host.buttons;
+    ev_keys = host.keys;
+    ev_master = host.master;
     while (fgets(line, sizeof line, sc)) {
         char *c, *cmd;
         lineno++;
@@ -232,27 +287,27 @@ int main(int argc, char **argv)
             continue;
         cmd = tok[0];
         if (!strcmp(cmd, "wait"))
-            host_run_ms((uint32_t)num(tok[1]));
+            run((uint32_t)num(tok[1]));
         else if (!strcmp(cmd, "press") || !strcmp(cmd, "release")) {
             uint32_t bit = 1u << btn_of(ntok > 1 ? tok[1] : "");
             host.buttons = cmd[0] == 'p' ? host.buttons | bit : host.buttons & ~bit;
-            host_run_ms(2);
+            run(2);
         } else if (!strcmp(cmd, "tap")) {
             uint32_t bit = 1u << btn_of(ntok > 1 ? tok[1] : "");
             host.buttons |= bit;
-            host_run_ms(40);
+            run(40);
             host.buttons &= ~bit;
-            host_run_ms(40);
+            run(40);
         } else if (!strcmp(cmd, "key")) {
             uint32_t bit = 1u << key_of(ntok > 1 ? tok[1] : "");
             if (ntok < 3) {
                 host.keys |= bit;
-                host_run_ms(60);
+                run(60);
                 host.keys &= ~bit;
-                host_run_ms(30);
+                run(30);
             } else if (!strcmp(tok[2], "down") || !strcmp(tok[2], "up")) {
                 host.keys = tok[2][0] == 'd' ? host.keys | bit : host.keys & ~bit;
-                host_run_ms(2);
+                run(2);
             } else
                 bad("key: down or up, not", tok[2]);
         } else if (!strcmp(cmd, "turn")) {
@@ -261,7 +316,9 @@ int main(int argc, char **argv)
             int s = n > 0 ? 1 : -1;
             for (; n; n -= s) {
                 host.enc[e] += s;
-                host_run_ms((uint32_t)gap);
+                if (ev)
+                    fprintf(ev, "e %d %d\n", e, s);
+                run((uint32_t)gap);
             }
         } else if (!strcmp(cmd, "master")) {
             long v = num(ntok > 1 ? tok[1] : 0);
@@ -269,31 +326,37 @@ int main(int argc, char **argv)
                 bad("master: 0..4096, not", tok[1]);
             host.master = (uint16_t)v;
         } else if (!strcmp(cmd, "midi")) {
-            uint32_t s, d1, d2;
+            uint32_t pkt;
             if (ntok != 4)
                 bad("midi: S D1 D2", "");
-            s = (uint32_t)strtoul(tok[1], 0, 16) & 0xFF;
-            d1 = (uint32_t)strtoul(tok[2], 0, 16) & 0x7F;
-            d2 = (uint32_t)strtoul(tok[3], 0, 16) & 0x7F;
-            host_midi_push((s >= 0xF0 ? 0x0Fu : s >> 4) | s << 8 | d1 << 16 | d2 << 24);
+            pkt = host_midi_msg((uint32_t)strtoul(tok[1], 0, 16), (uint32_t)strtoul(tok[2], 0, 16),
+                                (uint32_t)strtoul(tok[3], 0, 16));
+            host_midi_push(pkt);
+            if (ev)
+                fprintf(ev, "midi 0x%X\n", pkt);
         } else if (!strcmp(cmd, "wav")) {
             if (ntok < 2)
                 bad("wav: FILE [MS]", "");
             snprintf(path, sizeof path, "%s/%s", dir, tok[1]);
+            rec_stop();
             if (wav_open(path))
                 bad("cannot write", path);
+            if (ev)
+                fprintf(ev, "wav on %s\n", tok[1]);
             if (ntok > 2) {
-                host_run_ms((uint32_t)num(tok[2]));
-                wav_close();
+                run((uint32_t)num(tok[2]));
+                rec_stop();
             }
         } else if (!strcmp(cmd, "wavstop"))
-            wav_close();
+            rec_stop();
         else if (!strcmp(cmd, "shot")) {
             if (ntok < 2)
                 bad("shot: FILE.png", "");
             snprintf(path, sizeof path, "%s/%s", dir, tok[1]);
             if (png_write(path, host.fb))
                 bad("cannot write", path);
+            if (ev)
+                fprintf(ev, "shot %s 0x%08X\n", tok[1], fnv32((const uint8_t *)host.fb, sizeof host.fb));
         } else if (!strcmp(cmd, "leds"))
             leds();
         else if (!strcmp(cmd, "peakreset"))
@@ -311,7 +374,9 @@ int main(int argc, char **argv)
             bad("unknown command", cmd);
     }
     fclose(sc);
-    wav_close();
+    rec_stop();
+    if (ev)
+        fclose(ev);
     printf("host: %u ms simulated, %u blits, %u WAV frames%s\n", host.now_ms, host.blits, wav_frames(),
            fails ? ", EXPECTATIONS FAILED" : "");
     return fails ? 1 : 0;

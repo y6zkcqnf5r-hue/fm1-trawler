@@ -2,9 +2,12 @@
 # Trawler build. Works with GNU Make 3.81 (the macOS one).
 #
 #   make host    native simulator: build/host/trawler SCRIPT.trs [OUTDIR] -> WAV + PNG
-#   make web     wasm build: build/emu/                         (P0-05; DOCKER=1 uses the pinned image)
-#   make serve   serve build/emu on http://localhost:8080       (P0-05)
-#   make test    lint + lint self-test + generated tables + unit tests + scenarios
+#   make web     wasm build: build/emu/{index.html, worklet.js, keymap.js, trawler.wasm}
+#                (emcc from the local emsdk at EMSDK_VERSION; DOCKER=1 uses the pinned image)
+#   make serve   make web, then serve build/emu on http://localhost:8080
+#   make test    lint + lint self-test + generated tables + unit tests + scenarios + wasm/native parity
+#   make parity  tests/host/emu_test.mjs: the wasm and the native build give the same bytes
+#                (PARITY=0 skips it, loudly: CLAUDE.md rule 7 is then not checked)
 #   make scenarios  every tests/scenarios/*.trs into build/scenarios/<name>/, outputs checked
 #                against tests/golden/<name>.sha256
 #   make golden  play the scenarios and accept their WAV and PNG as the new golden hashes
@@ -38,8 +41,12 @@ APP_SRC = $(filter-out %/plat_fm1.c,$(wildcard firmware/src/*/*.c))
 HOST_SRC = host/trawler_host.c host/scenario.c host/wav.c host/png.c
 HOST_BIN = build/host/trawler
 SCENARIOS = $(wildcard tests/scenarios/*.trs)
+WEB_SRC = web/emu/trawler_web.c host/trawler_host.c
+WEB_PAGE = build/emu/index.html build/emu/worklet.js build/emu/keymap.js
+WASM = build/emu/trawler.wasm
+NODE ?= node
 
-.PHONY: all host web serve gen test unit scenarios run-scenarios golden lint lint-selftest clean
+.PHONY: all host web serve gen test unit scenarios run-scenarios golden parity lint lint-selftest clean
 
 all: test
 
@@ -63,11 +70,34 @@ scenarios: run-scenarios
 golden: run-scenarios
 	@$(PYTHON) tests/host/golden.py accept build/scenarios tests/golden
 
-web:
-	@echo "make web: arrive en P0-05 (build wasm, emcc = $(EMCC))"; exit 1
+web: $(WASM) $(WEB_PAGE)
 
-serve:
-	@echo "make serve: arrive en P0-05"; exit 1
+# same flags as the native build (rule 7), no Emscripten glue: the worklet brings a stub WASI
+$(WASM): $(WEB_SRC) $(APP_SRC) $(wildcard host/*.h) $(FIRMWARE_H) $(GEN)
+	@mkdir -p build/emu
+	@if [ "$(DOCKER)" != 1 ] && ! command -v $(firstword $(EMCC)) >/dev/null 2>&1; then \
+	    echo "make web: emcc introuvable ($(EMCC))."; \
+	    echo "  Installer emsdk $(EMSDK_VERSION) dans $(EMSDK_DIR), ou lancer avec DOCKER=1 (image emscripten/emsdk:$(EMSDK_VERSION))."; \
+	    echo "  Pour sauter la parité dans make test : make test PARITY=0"; exit 1; fi
+	$(EMCC) $(CFLAGS_COMMON) -DAPP_HOST -DAPP_WEB -Ihost --no-entry -sSTANDALONE_WASM -sFILESYSTEM=0 \
+	    -sSTACK_SIZE=1048576 -sINITIAL_MEMORY=33554432 -o $@ $(WEB_SRC) $(APP_SRC)
+	@echo "web: $@ ($$(wc -c < $@ | tr -d ' ') octets)"
+
+build/emu/%: web/emu/%
+	@mkdir -p build/emu
+	cp $< $@
+
+serve: web
+	@echo "Trawler : http://localhost:8080 (Ctrl+C pour arrêter)"
+	@$(PYTHON) -m http.server 8080 --bind 127.0.0.1 --directory build/emu
+
+ifeq ($(PARITY),0)
+parity:
+	@echo "SKIP parité (PARITY=0) : règle 7 NON vérifiée, le wasm et le natif ne sont pas comparés"
+else
+parity: $(HOST_BIN) $(WASM) web/emu/worklet.js web/emu/keymap.js
+	@$(NODE) tests/host/emu_test.mjs
+endif
 
 lint:
 	@sh tools/lint.sh
@@ -90,7 +120,7 @@ build/unit/%: tests/unit/%.c tests/unit/test.h $(FIRMWARE_H) $(GEN)
 unit: $(UNIT_BIN)
 	@for t in $(UNIT_BIN); do $$t || exit 1; done
 
-test: lint lint-selftest unit scenarios
+test: lint lint-selftest unit scenarios parity
 
 clean:
 	rm -rf build

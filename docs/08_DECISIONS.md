@@ -19,6 +19,7 @@
 | ADR-013 | 2026-10-10 | `plat.h` expose la **LED rouge de PLAY** (`plat_play_red`), allumée pendant REC | Le FM-1 a les deux couleurs, FoMni le fait (Q-10) |
 | ADR-014 | 2026-10-10 | Le nom définitif est **Trawler** | Il se range avec les noms de bateaux de l'écosystème (Q-01) |
 | ADR-015 | 2026-10-10 | Le 2ᵉ bouton s'appelle **SEL** partout (`B_SEL`, scénarios `.trs`, panneau P0-06), comme il est imprimé sur l'appareil | La photo du produit le confirme. « SCL » est seulement le nom que lui donne le firmware Felucca (et son émulateur) |
+| ADR-016 | 2026-10-10 | `make test` construit toujours le wasm et lance la parité wasm/natif (`make parity`). Sans emcc, il échoue avec un message ; `make test PARITY=0` la saute en l'écrivant en clair | La règle 7 est non négociable : un saut silencieux masquerait une régression. Le build wasm prend une seconde |
 
 ## Questions ouvertes
 
@@ -40,3 +41,4 @@
 | Q-14 | Le budget CPU de référence, en MAC par frame | P3-09 | D'après les moteurs de Felucca |
 | Q-15 | Le stockage sur l'appareil : les objets de Felucca sont limités à 3 840 octets, il faut le nôtre | P5-04 | |
 | Q-16 | Les touches noires portent des légendes gravées (`OP1`–`OP6`, `PIT`, `GLO`, `MONO`, `POLY`, voir `01_FM1_HARDWARE.md`). La palette `SEL` + touche noire doit-elle en tenir compte ? | P2-06 | Soit les ignorer (l'aide `SEL + HOME` dit quelle touche fait quoi), soit s'en servir de repère quand le sens colle (`GLO` : glide, `MONO`/`POLY` : une bascule, `PIT` : la hauteur). Le panneau P0-06 affiche ces légendes dans tous les cas, comme sur l'appareil |
+| Q-17 | Les chiffres du clavier d'ordinateur : notes ou potards ? La spec §4.5 met KNOB1–4 −/+ sur 1–8, mais les touches noires de la rangée haute (Q–O) tombent sur 2 3 4 6 7 9 | P0-06 | En P0-05, les chiffres jouent les notes (rien ne lit encore les potards). Options : potards ailleurs (pavé, `,` `.` …), ou rangée haute sans touches noires |

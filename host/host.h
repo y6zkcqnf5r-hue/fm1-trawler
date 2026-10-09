@@ -47,6 +47,8 @@ extern void (*host_audio_sink)(const int16_t *lr, int n);
 /* the keyboard: key index (0 = F3) of the white keys, left to right, and of the black ones */
 extern const uint8_t host_white[16], host_black[11];
 
+void host_store_init(void);             /* every slot empty, once: before the storage is first touched */
 void host_boot(void);                   /* reset the device (not the storage), then app_init */
 void host_run_ms(uint32_t ms);          /* run the device: audio blocks when due, app_frame every UI_MS */
 void host_midi_push(uint32_t pkt);      /* an incoming USB-MIDI packet */
+uint32_t host_midi_msg(uint32_t st, uint32_t d1, uint32_t d2);  /* the USB-MIDI packet of a MIDI message */

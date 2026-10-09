@@ -109,6 +109,13 @@ void host_midi_push(uint32_t pkt)
         host.midi_q[host.midi_w++ & (HOST_MIDI_Q - 1)] = pkt;
 }
 
+/* cable 0, code index = the status' high nibble (0xF for system messages) */
+uint32_t host_midi_msg(uint32_t st, uint32_t d1, uint32_t d2)
+{
+    st &= 0xFF;
+    return (st >= 0xF0 ? 0x0Fu : st >> 4) | st << 8 | (d1 & 0x7F) << 16 | (d2 & 0x7F) << 24;
+}
+
 /* ------------------------------------------------------------- storage --- */
 int plat_store_load(int slot, uint8_t *buf, int max)
 {
@@ -136,15 +143,20 @@ int plat_cpu_pct(void) { return 0; }    /* the cost model arrives in P3-09; meas
 int plat_xruns(void) { return 0; }
 
 /* ---------------------------------------------------------- the device --- */
+void host_store_init(void)
+{
+    static int done;
+    int i;
+    if (done)
+        return;
+    for (i = 0; i < HOST_SLOTS; i++)
+        host.store_len[i] = -1;
+    done = 1;
+}
+
 void host_boot(void)
 {
-    static int first = 1;
-    int i;
-    if (first) {
-        for (i = 0; i < HOST_SLOTS; i++)
-            host.store_len[i] = -1;
-        first = 0;
-    }
+    host_store_init();
     host.now_ms = 0;
     host.buttons = host.keys = 0;
     memset(host.enc, 0, sizeof host.enc);
