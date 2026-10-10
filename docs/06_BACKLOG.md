@@ -111,11 +111,11 @@ Spec §4.3 :
 
 - CA : scénarios pour chaque mode de saisie (`tests/scenarios/phrase_entry.trs`). Choix : ADR-029, ADR-030.
 
-**☐ P1-07 — PLAY, tempo et vue Projet minimale (S)**
+**☑ P1-07 — PLAY, tempo et vue Projet minimale (S)**
 
 PLAY lit la phrase en boucle et l'arrête. Le tempo se règle dans la vue Projet (GLO ×2).
 
-- CA : on entend la phrase tapée dans le FM-1 virtuel. **🎉 Jalon P1.**
+- CA : on entend la phrase tapée dans le FM-1 virtuel (`tests/scenarios/project.trs`, ADR-031). **🎉 Jalon P1.**
 
 ---
 

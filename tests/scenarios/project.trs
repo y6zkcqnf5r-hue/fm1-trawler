@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# project (P1-07): GLO opens the Project view (the tempo, the name); PLAY plays the phrase typed,
+# at the new tempo; SEQ goes back to the Phrase view (ADR-031)
+wait 100
+# two notes of our own, on steps 2 and 3 (the demo is on 0 4 8 C E)
+turn SELECT 2
+key D4
+key F4
+expect cell 2 0 50
+expect cell 3 0 53
+tap GLO
+expect view 1
+expect lit_buttons 0x80
+expect field 0
+expect tempo 120
+shot project.png
+# TEMPO: PRESETS +-1, SEL +-10, from 40 to 300
+turn PRESETS 5
+expect tempo 125
+press SEL
+turn PRESETS -3
+release SEL
+expect tempo 95
+press SEL
+turn PRESETS -10
+release SEL
+expect tempo 40
+press SEL
+turn PRESETS 30 20
+release SEL
+expect tempo 300
+turn PRESETS 1
+expect tempo 300
+press SEL
+turn PRESETS -20 20
+release SEL
+expect tempo 100
+# NAME: ALGORITHM the position, PRESETS the character, SEL+EDIT clears it
+turn SELECT 1
+expect field 1
+turn PRESETS 20 20
+expect namechar 0 0x54
+turn ALGO 1
+turn PRESETS 18 20
+turn ALGO 1
+turn PRESETS 1
+expect namechar 1 0x52
+expect namechar 2 0x41
+press SEL
+tap EDIT
+release SEL
+expect namechar 2 0
+turn PRESETS 1
+expect namechar 2 0x41
+shot project_name.png
+# PLAY from here plays the phrase at 100 BPM (a turn: 16 x 6 ticks x 1102.5 samples = 2.4 s)
+wav project.wav
+tap PLAY
+wait 2400
+expect lit_buttons 0x1080
+tap SEQ
+expect view 0
+expect lit_buttons 0x1800
+shot project_back.png
+tap PLAY
+wait 300
+wavstop
+expect lit_buttons 0x800

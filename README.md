@@ -8,8 +8,25 @@ Un firmware libre (GPL-3.0) qui fait du FM-1, le petit synthé de poche de M-VAV
 
 ## Où en est-on
 
-- **P0, le squelette : fait.** Le code de l'appareil compilé en WebAssembly et joué dans un AudioWorklet, un panneau cliquable (souris, doigt, clavier), un simulateur hôte scripté qui rend des WAV et des PNG, et une CI qui vérifie que le wasm et le natif rendent les mêmes octets. L'app de démonstration joue un simple sinus.
-- **P1, le cœur du tracker : à venir.** « Je tape une phrase et je l'entends. »
+- **P0, le squelette : fait.** Le code de l'appareil compilé en WebAssembly et joué dans un AudioWorklet, un panneau cliquable (souris, doigt, clavier), un simulateur hôte scripté qui rend des WAV et des PNG, et une CI qui vérifie que le wasm et le natif rendent les mêmes octets.
+- **P1, le cœur du tracker : fait.** « Je tape une phrase et je l'entends » : le modèle de données, un séquenceur exact à l'échantillon, un moteur `WAV` (scie, carré, triangle anticrénelés, filtre résonant, enveloppe), la vue Phrase avec sa saisie, et une vue Projet pour le tempo.
+- **P2, une vraie chanson à 8 pistes : à venir.** Chains, song, navigation, instruments, grooves, édition, mixer, sauvegarde.
+
+### Essayer la vue Phrase
+
+Dans le FM-1 virtuel, après Démarrer (touches données en position QWERTY ; le panneau montre la légende AZERTY) :
+
+| Geste | Clavier de l'ordinateur | Effet |
+| --- | --- | --- |
+| Curseur | ↑ ↓ (ligne), ← → (colonne) | SELECT et ALGORITHM |
+| Écrire une note | une touche du piano (rangées Z…M et Q…P) | dans la colonne NOTE : la note s'écrit, sonne, le curseur descend |
+| Taper une valeur | les touches blanches (0 à F, de gauche à droite) | dans VOL, INSTR et les valeurs FX : deux chiffres (`7_` puis `F`) |
+| Choisir une commande FX | les 6 premières touches blanches | une famille ; un nouvel appui, la commande suivante |
+| Ajuster | `[` `]` (Maj : ±16, une octave pour une note) | PRESETS |
+| Dernière valeur, `OFF` | Entrée | EDIT ; Maj+Entrée efface |
+| Lire, arrêter | Espace | PLAY |
+| Tempo, nom | F6 (fn+F6 sur Mac), puis F3 pour revenir | la vue Projet (GLO), la vue Phrase (SEQ) |
+| Filtre en direct | ⌥1/⌥2 (CUT), ⌥3/⌥4 (RES) | KNOB1 et KNOB2 |
 
 Le détail est dans [`docs/06_BACKLOG.md`](docs/06_BACKLOG.md).
 

@@ -156,7 +156,7 @@ static int key_of(const char *s)
 /* expect WHAT [ARGS] VAL. The app's state: view, track, phrase, cursor row|col, octave, step (edit
  * step), instr (the instrument the keys play), pending (the hex digit typed, -1 none), cell ROW COL
  * (the byte at that step and STEP_* column of the phrase the view edits), iparam K (byte K of that
- * instrument's parameters, IP_*). */
+ * instrument's parameters, IP_*); the Project view: tempo, field (0 TEMPO, 1 NAME), namechar I. */
 static long p_ms(char **a) { (void)a; return (long)host.now_ms; }
 static long p_buttons(char **a) { (void)a; return (long)host.buttons; }
 static long p_keys(char **a) { (void)a; return (long)host.keys; }
@@ -186,6 +186,9 @@ static long p_step(char **a) { (void)a; return ui_probe(UI_PROBE_STEP); }
 static long p_instr(char **a) { (void)a; return ui_probe(UI_PROBE_INSTR); }
 static long p_pending(char **a) { (void)a; return ui_probe(UI_PROBE_PENDING); }
 static long p_iparam(char **a) { return instr_get(ui_probe(UI_PROBE_INSTR), INSTR_P + (int)num(a[0])); }
+static long p_tempo(char **a) { (void)a; return proj_tempo(); }
+static long p_field(char **a) { (void)a; return ui_probe(UI_PROBE_FIELD); }
+static long p_namechar(char **a) { return proj_name_get((int)num(a[0])); }
 static long p_cell(char **a) { return phrase_get(ui_probe(UI_PROBE_PHRASE), (int)num(a[0]), (int)num(a[1])); }
 static long p_pixel(char **a)           /* RGB565 as the app drew it */
 {
@@ -226,6 +229,9 @@ static const struct probe {
     {"instr", 0, p_instr},
     {"pending", 0, p_pending},
     {"iparam", 1, p_iparam},
+    {"tempo", 0, p_tempo},
+    {"field", 0, p_field},
+    {"namechar", 1, p_namechar},
 };
 
 /* 0 = met, 1 = failed */

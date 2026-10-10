@@ -29,6 +29,14 @@ void view_phrase_init(void)
     sounding = -1;
 }
 
+void view_phrase_leave(void)
+{
+    if (sounding >= 0)
+        seq_cmd_preview(ui.track, ui.instr, -1);
+    sounding = -1;
+    held = 0;
+}
+
 static int clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int is_fx(int col) { return col == STEP_FX1 || col == STEP_FX2 || col == STEP_FX3; }
 static int is_hex(int col) { return col != STEP_NOTE && !is_fx(col); }

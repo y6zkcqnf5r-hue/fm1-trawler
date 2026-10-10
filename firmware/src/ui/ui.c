@@ -3,6 +3,7 @@
 #include "tracker/model.h"
 #include "tracker/seq.h"
 #include "ui/view_phrase.h"
+#include "ui/view_project.h"
 
 ui_t ui;
 
@@ -118,17 +119,33 @@ void ui_frame(void)
             seq_cmd_play_phrase(ui.track, ui.phrase);
     }
 
-    view_phrase_input(&in);
+    /* the view buttons: SEQ Phrase, GLO Project (Groove first from P2-05) */
+    if (PRESSED(&in, B_SEQ) && ui.view != VIEW_PHRASE) {
+        ui.view = VIEW_PHRASE;
+        drawn = 0;
+    } else if (PRESSED(&in, B_GLO) && ui.view != VIEW_PROJECT) {
+        view_phrase_leave();
+        ui.view = VIEW_PROJECT;
+        drawn = 0;
+    }
 
-    lit = in.held | 1u << B_SEQ;        /* the view's button: Phrase */
-    dim = view_phrase_dim();            /* what the keys do in this column */
+    if (ui.view == VIEW_PHRASE)
+        view_phrase_input(&in);
+    else
+        view_project_input(&in);
+
+    lit = in.held | 1u << (ui.view == VIEW_PHRASE ? B_SEQ : B_GLO);   /* the view's button */
+    dim = ui.view == VIEW_PHRASE ? view_phrase_dim() : 0;   /* what the keys do in this column */
     if (seq_playing) {
         lit |= 1u << B_PLAY;
         dim = ui_white_bit(seq_row[ui.track]);   /* the step playing, on the 16 white keys */
     }
     plat_leds(lit, in.keys, dim);
 
-    view_phrase_draw(!drawn);
+    if (ui.view == VIEW_PHRASE)
+        view_phrase_draw(!drawn);
+    else
+        view_project_draw(!drawn);
     drawn = 1;
 }
 
@@ -153,6 +170,10 @@ int ui_probe(int what)
         return ui.instr;
     case UI_PROBE_PENDING:
         return ui.pending;
+    case UI_PROBE_FIELD:
+        return view_project_probe(PROJ_PROBE_FIELD);
+    case UI_PROBE_CHAR:
+        return view_project_probe(PROJ_PROBE_CHAR);
     }
     return -1;
 }

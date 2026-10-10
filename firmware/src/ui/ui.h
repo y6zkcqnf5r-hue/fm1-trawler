@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* The interface: reads the controls once per app_frame, handles what every view shares (PLAY,
- * octave, edit step), hands the rest to the current view, lights the LEDs and has the view redraw
- * what changed (spec §3 and §4). Only the Phrase view exists yet; the others come with P2. */
+ * octave, edit step, the view buttons), hands the rest to the current view, lights the LEDs and
+ * has the view redraw what changed (spec §3 and §4). Views: Phrase (SEQ) and Project (GLO, ADR-031);
+ * the others come with P2. */
 #pragma once
 #include <stdint.h>
 #include "app/plat.h"
 
-enum { VIEW_PHRASE, VIEW_COUNT };
+enum { VIEW_PHRASE, VIEW_PROJECT, VIEW_COUNT };
 
 #define UI_OCT_MIN 0
 #define UI_OCT_MAX 8
@@ -51,5 +52,5 @@ void ui_note(int note, char *s);        /* "C-4", "C#4", "OFF", "---" (empty), "
 
 /* app state for the scenario runner's expect (host/scenario.c) */
 enum { UI_PROBE_VIEW, UI_PROBE_TRACK, UI_PROBE_PHRASE, UI_PROBE_ROW, UI_PROBE_COL, UI_PROBE_OCT,
-       UI_PROBE_STEP, UI_PROBE_INSTR, UI_PROBE_PENDING };
+       UI_PROBE_STEP, UI_PROBE_INSTR, UI_PROBE_PENDING, UI_PROBE_FIELD, UI_PROBE_CHAR };
 int ui_probe(int what);

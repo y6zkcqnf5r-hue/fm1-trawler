@@ -21,6 +21,7 @@
 #include "ui/ui.h"
 
 void view_phrase_init(void);            /* the last values, at boot */
+void view_phrase_leave(void);           /* to another view: a key still sounding is released */
 void view_phrase_input(const input_t *in);
 uint32_t view_phrase_dim(void);         /* the keys to light dim: what they do in this column */
 void view_phrase_draw(int full);        /* full: the whole screen (on entering the view) */
