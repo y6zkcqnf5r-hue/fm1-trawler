@@ -56,7 +56,7 @@ Une silhouette du FM-1 avec ses 27 touches (et les légendes gravées des touche
 - CA : utilisable au doigt sur iPad.
 - CA : la légende du clavier d'ordinateur a un sélecteur QWERTY / AZERTY (Mac et PC), qui ne change que l'affichage : les touches restent associées à leur position physique (`KeyboardEvent.code`). Safari et Firefox ne savent pas lire la disposition ; sur Chrome et Edge, `navigator.keyboard.getLayoutMap()` peut choisir la disposition par défaut. Q-17 tranchée : ADR-017.
 
-**☐ P0-07 — CI et GitHub Pages (S)**
+**☑ P0-07 — CI et GitHub Pages (S)**
 
 GitHub Actions lance `make lint test web` et déploie `build/emu` sur GitHub Pages.
 
