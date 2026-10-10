@@ -1,5 +1,7 @@
 # Trawler — un tracker pour le M-VAVE FM-1
 
+> **Projet arrêté le 2026-10-10, dépôt archivé.** Après le jalon P1, il est apparu que l'ergonomie du FM-1 (encodeurs, pas de croix directionnelle, un écran de 240 px) ne convient pas à un tracker. Le travail continue dans **[FM80S](https://github.com/y6zkcqnf5r-hue/fm1-fm80s)**, un synthé-looper pour le FM-1, qui reprend la plateforme et le DSP de ce dépôt.
+
 [![ci](https://github.com/y6zkcqnf5r-hue/fm1-trawler/actions/workflows/ci.yml/badge.svg)](https://github.com/y6zkcqnf5r-hue/fm1-trawler/actions/workflows/ci.yml)
 
 Un firmware libre (GPL-3.0) qui fait du FM-1, le petit synthé de poche de M-VAVE, un **tracker** : Song → Chain → Phrase → Instrument → Table → Groove, dans la lignée des trackers de poche comme LSDJ. On le développe d'abord dans le navigateur, avec **le même code C** que celui qui tournera sur l'appareil.
