@@ -49,6 +49,7 @@ void voice_note(voice_t *v, int pitch, int vol, const patch_t *p);
 void voice_legato(voice_t *v, int pitch, const patch_t *p);  /* new pitch; triggers if silent */
 void voice_vol(voice_t *v, int vol);
 void voice_off(voice_t *v);             /* release */
+void voice_filter(voice_t *v, int cut, int res);    /* live CUT and RES of the sounding note */
 int voice_active(const voice_t *v);     /* 0 = silent, adds nothing */
 int voice_cost(const voice_t *v);       /* declared MAC per frame, 0 when silent */
 void voice_render(voice_t *v, int32_t *lr, int n);  /* adds n interleaved L R frames, Q15 */

@@ -102,6 +102,13 @@ void voice_off(voice_t *v)
         v->next_pt.engine = VOICE_NONE;
 }
 
+void voice_filter(voice_t *v, int cut, int res)
+{
+    v->pt.cut = (uint8_t)cut;
+    v->pt.res = (uint8_t)res;
+    svf_set(&v->flt, v->pt.flt, cut, res);   /* the states go on: no click */
+}
+
 /* the gains of the next sub-block */
 static void next_sub(voice_t *v)
 {

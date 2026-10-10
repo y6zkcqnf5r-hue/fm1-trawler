@@ -193,7 +193,7 @@ La **mini-carte** en haut à droite montre la position dans la chaîne de vues `
 | Bouton | Seul | Avec `SEL` maintenu |
 | --- | --- | --- |
 | `SEL` | Modificateur, comme SHIFT | — |
-| `EDIT` | Sur une cellule vide : insère la dernière valeur. Sur un n° de chain ou de phrase vide, deux appuis prennent le **premier numéro libre** | **Efface** la cellule |
+| `EDIT` | Sur une cellule vide : insère la dernière valeur. Sur une note : `OFF` (sur `OFF`, la note revient). Sur une autre valeur : elle devient la dernière valeur. Sur un n° de chain ou de phrase vide, deux appuis prennent le **premier numéro libre** | **Efface** la cellule |
 | `PLAY` | Lire/arrêter selon la vue (§2) | Lire la song à partir de la ligne en cours |
 | `REC` | Enregistrement en direct : les touches jouées s'écrivent au pas le plus proche, et les potards en FX | — |
 | `OCT−` / `OCT+` | Octave du clavier (0–8) | Pas d'édition : de combien de lignes le curseur avance après une note (0–F) |
@@ -207,9 +207,9 @@ Le rôle des touches dépend de la colonne sous le curseur. C'est **le grand ato
 
 | Colonne sous le curseur | Les touches seules |
 | --- | --- |
-| NOTE | Les 27 touches jouent la note, l'écrivent, et le curseur descend du pas d'édition. On entend la note pendant la saisie |
-| Valeur en hexa (VOL, INSTR, valeurs FX, n° de chain ou de phrase, paramètres) | **Les 16 touches blanches valent 0 à F**, de F3 à G5. On tape deux chiffres : le premier s'affiche `7_`, le second complète la valeur, et un délai d'1,5 s valide un seul chiffre **[PROTO]** |
-| Commande FX | Les touches blanches choisissent une catégorie de commandes ; PRESETS fait défiler |
+| NOTE | Les 27 touches jouent la note, l'écrivent (avec l'instrument courant si le pas n'en a pas), et le curseur descend du pas d'édition. On entend la note pendant la saisie |
+| Valeur en hexa (VOL, INSTR, valeurs FX, n° de chain ou de phrase, paramètres) | **Les 16 touches blanches valent 0 à F**, de F3 à G5, et s'allument faiblement. On tape deux chiffres : le premier s'affiche `7_`, le second complète la valeur ; un chiffre seul est validé après 1,5 s ou au geste suivant **[PROTO]** |
+| Commande FX | Les touches blanches 1 à 6 choisissent une famille (hauteur, temps, structure, son, envois, global) et s'allument faiblement ; un nouvel appui passe à la commande suivante de la famille ; PRESETS fait défiler, SEL+PRESETS saute de famille |
 
 **`SEL` + une touche, quelle que soit la colonne :**
 

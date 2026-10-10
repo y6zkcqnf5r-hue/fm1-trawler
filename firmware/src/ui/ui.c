@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "ui/ui.h"
-#include "app/plat.h"
 #include "tracker/model.h"
 #include "tracker/seq.h"
 #include "ui/view_phrase.h"
@@ -8,8 +7,6 @@
 ui_t ui;
 
 static uint32_t prev_buttons, prev_keys;
-static uint8_t order[NKEYS];            /* held keys, oldest first: the last one sounds */
-static int held, sounding;              /* sounding: the note the keys play, -1 none */
 static int drawn;
 
 static const char HEX[] = "0123456789ABCDEF";
@@ -45,6 +42,31 @@ void ui_note(int note, char *s)
     s[3] = 0;
 }
 
+static int is_black(int k)
+{
+    int s = (k + 5) % 12;               /* key 0 is F3 */
+    return s == 1 || s == 3 || s == 6 || s == 8 || s == 10;
+}
+
+int ui_white(int key)
+{
+    int i, w = 0;
+    if (key < 0 || key >= NKEYS || is_black(key))
+        return -1;
+    for (i = 0; i < key; i++)
+        w += !is_black(i);
+    return w;
+}
+
+uint32_t ui_white_bit(int w)
+{
+    int k;
+    for (k = 0; k < NKEYS; k++)
+        if (ui_white(k) == w)
+            return 1u << k;
+    return 0;
+}
+
 void ui_init(void)
 {
     ui.view = VIEW_PHRASE;
@@ -52,92 +74,59 @@ void ui_init(void)
     ui.phrase = 0;
     ui.row = ui.col = 0;
     ui.oct = UI_OCT_START;
+    ui.step = 1;
     ui.instr = 0;
+    ui.pending = -1;
     prev_buttons = prev_keys = 0;
-    held = 0;
-    sounding = -1;
     drawn = 0;
-}
-
-static int clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
-
-/* the held keys, oldest first; returns the note the last one plays, or -1 */
-static int track_keys(uint32_t keys)
-{
-    uint32_t up = prev_keys & ~keys, down = keys & ~prev_keys;
-    int i, j, k;
-    for (i = j = 0; i < held; i++)      /* drop the released ones, keep the order */
-        if (!(up >> order[i] & 1u))
-            order[j++] = order[i];
-    held = j;
-    for (k = 0; k < NKEYS; k++)
-        if (down >> k & 1u && held < NKEYS)
-            order[held++] = (uint8_t)k;
-    if (!held)
-        return -1;
-    return clamp(ui.oct * 12 + 5 + order[held - 1], 0, NOTE_MAX);   /* key 0 is F */
-}
-
-static int white_index(int k)           /* 0..15 for a white key, -1 for a black one */
-{
-    int s = (k + 5) % 12, w = 0, i;
-    if (s == 1 || s == 3 || s == 6 || s == 8 || s == 10)
-        return -1;
-    for (i = 0; i < k; i++) {
-        int t = (i + 5) % 12;
-        if (!(t == 1 || t == 3 || t == 6 || t == 8 || t == 10))
-            w++;
-    }
-    return w;
-}
-
-static uint32_t white_bit(int w)
-{
-    int k;
-    for (k = 0; k < NKEYS; k++)
-        if (white_index(k) == w)
-            return 1u << k;
-    return 0;
+    view_phrase_init();
 }
 
 void ui_frame(void)
 {
-    uint32_t buttons = plat_buttons(), keys = plat_keys();
-    uint32_t pressed = buttons & ~prev_buttons, lit = buttons, dim = 0;
-    int n, note;
+    input_t in;
+    uint32_t lit, dim;
+    int e;
 
-    /* the cursor: SELECT moves the row, ALGORITHM the column */
-    n = plat_enc(EN_SELECT);
-    ui.row = (uint8_t)clamp(ui.row + n, 0, TRK_ROWS - 1);
-    n = plat_enc(EN_ALGO);
-    ui.col = (uint8_t)clamp(ui.col + n, 0, STEP_COLS - 1);
+    in.held = plat_buttons();
+    in.pressed = in.held & ~prev_buttons;
+    in.keys = plat_keys();
+    in.keys_down = in.keys & ~prev_keys;
+    for (e = 0; e < EN_COUNT; e++)
+        in.enc[e] = plat_enc(e);
+    in.now = plat_ms();
+    prev_buttons = in.held;
+    prev_keys = in.keys;
 
-    if (pressed >> B_OCTDN & 1u && ui.oct > UI_OCT_MIN)
-        ui.oct--;
-    if (pressed >> B_OCTUP & 1u && ui.oct < UI_OCT_MAX)
-        ui.oct++;
-    if (pressed >> B_PLAY & 1u) {
+    /* shared by every view: OCT-/OCT+ the keyboard octave, SEL+OCT-/OCT+ the edit step; PLAY */
+    if (PRESSED(&in, B_OCTDN)) {
+        if (HELD(&in, B_SEL))
+            ui.step = (uint8_t)(ui.step > 0 ? ui.step - 1 : 0);
+        else if (ui.oct > UI_OCT_MIN)
+            ui.oct--;
+    }
+    if (PRESSED(&in, B_OCTUP)) {
+        if (HELD(&in, B_SEL))
+            ui.step = (uint8_t)(ui.step < UI_STEP_MAX ? ui.step + 1 : UI_STEP_MAX);
+        else if (ui.oct < UI_OCT_MAX)
+            ui.oct++;
+    }
+    if (PRESSED(&in, B_PLAY)) {
         if (seq_playing)
             seq_cmd_stop();
         else
             seq_cmd_play_phrase(ui.track, ui.phrase);
     }
 
-    /* the keys play the note on the track's voice, last one wins (P1-06 writes it) */
-    note = track_keys(keys);
-    if (note != sounding) {
-        seq_cmd_preview(ui.track, ui.instr, note);
-        sounding = note;
-    }
-    prev_buttons = buttons;
-    prev_keys = keys;
+    view_phrase_input(&in);
 
-    lit |= 1u << B_SEQ;                 /* the view's button: Phrase */
+    lit = in.held | 1u << B_SEQ;        /* the view's button: Phrase */
+    dim = view_phrase_dim();            /* what the keys do in this column */
     if (seq_playing) {
         lit |= 1u << B_PLAY;
-        dim = white_bit(seq_row[ui.track]);   /* the step playing, on the 16 white keys */
+        dim = ui_white_bit(seq_row[ui.track]);   /* the step playing, on the 16 white keys */
     }
-    plat_leds(lit, keys, dim);
+    plat_leds(lit, in.keys, dim);
 
     view_phrase_draw(!drawn);
     drawn = 1;
@@ -158,6 +147,12 @@ int ui_probe(int what)
         return ui.col;
     case UI_PROBE_OCT:
         return ui.oct;
+    case UI_PROBE_STEP:
+        return ui.step;
+    case UI_PROBE_INSTR:
+        return ui.instr;
+    case UI_PROBE_PENDING:
+        return ui.pending;
     }
     return -1;
 }

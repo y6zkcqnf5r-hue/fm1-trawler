@@ -37,7 +37,10 @@ expect blits >20
 blitsreset
 wait 500
 expect blits 0
-# the keys play the note, last one wins, and light
+# the keys play the note in the NOTE column, last one wins, and light
+turn ALGO -1
+expect cursor col 0
+expect dim_keys 0
 peakreset
 key C4 down
 wait 200

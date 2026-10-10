@@ -23,6 +23,7 @@ typedef struct {
 
 static track_t trk[TRK_TRACKS];
 static voice_t voice[TRK_TRACKS];
+static uint8_t vins[TRK_TRACKS];        /* the instrument each voice plays, TRK_EMPTY none */
 static sclock_t clk;
 static uint32_t left;                   /* samples until the next tick */
 static int playing;
@@ -72,7 +73,7 @@ static void trigger(int t)
     patch_t p;
     if (s->note <= NOTE_MAX) {
         if (s->instr != TRK_EMPTY) {
-            trk[t].instr = s->instr;
+            trk[t].instr = vins[t] = s->instr;
             instr_patch(s->instr, &p);
             voice_note(v, instr_pitch(s->instr, s->note), s->vol != TRK_EMPTY ? s->vol : 0xFF, &p);
         } else if (trk[t].instr != TRK_EMPTY) {
@@ -131,6 +132,7 @@ static void apply(uint32_t c)
         stop();
     else if (op == OP_PREVIEW && b < TRK_INSTRS && p <= NOTE_MAX) {
         patch_t pt;
+        vins[t] = (uint8_t)b;
         instr_patch(b, &pt);
         voice_note(&voice[t], instr_pitch(b, p), 0xFF, &pt);
     } else if (op == OP_PREVIEW_OFF)
@@ -158,7 +160,7 @@ void seq_init(void)
     for (t = 0; t < TRK_TRACKS; t++) {
         voice_reset(&voice[t]);
         trk[t].on = 0;
-        trk[t].instr = TRK_EMPTY;
+        trk[t].instr = vins[t] = TRK_EMPTY;
         seq_row[t] = 0;
     }
     sclock_set_bpm(&clk, 120);
@@ -191,6 +193,14 @@ void seq_render(int32_t *lr, int n)
     int t;
     while (cmdq_pop(&c))
         apply(c);
+    for (t = 0; t < TRK_TRACKS; t++) {  /* KNOB1-2 turn CUT and RES of the note that sounds */
+        const instr_t *in;
+        if (vins[t] == TRK_EMPTY || !voice_active(&voice[t]))
+            continue;
+        in = &g_proj->instr[vins[t]];
+        if (in->p[IP_CUT] != voice[t].pt.cut || in->p[IP_RES] != voice[t].pt.res)
+            voice_filter(&voice[t], in->p[IP_CUT], in->p[IP_RES]);
+    }
     while (n > 0) {
         int k = n;
         if (playing) {

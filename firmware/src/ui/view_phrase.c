@@ -27,6 +27,7 @@ static const char *const COL_NAMES[STEP_COLS] = {"NOTE", "VOL", "INSTR", "FX1", 
 static struct {
     uint8_t cells[TRK_ROWS][STEP_COLS];
     uint8_t cursor[TRK_ROWS];           /* the cursor's column on that row, 0xFF none */
+    int8_t pend[TRK_ROWS];              /* the hex digit pending in the cursor's cell, -1 none */
     uint8_t play[TRK_ROWS];
     int phrase, track, playing, tempo, oct;
     uint8_t knobs[4];
@@ -104,6 +105,11 @@ static void draw_row(int r, const step_t *s, int cursor, int play)
     for (c = 0; c < STEP_COLS; c++) {
         uint16_t fg = c == STEP_NOTE ? TH_NOTE : (c == STEP_FX1 || c == STEP_FX2 || c == STEP_FX3) ? TH_FX : TH_TEXT;
         cell_text(s, c, t);
+        if (c == cursor && ui.pending >= 0) {   /* "7_": the second digit is awaited */
+            t[0] = "0123456789ABCDEF"[ui.pending];
+            t[1] = '_';
+            t[2] = 0;
+        }
         if (c == cursor)
             gfx_text(xs[c], y + ty, t, 1, TH_BG, TH_CURSOR);
         else
@@ -218,8 +224,8 @@ void view_phrase_draw(int full)
     }
     for (r = 0; r < TRK_ROWS; r++) {
         const uint8_t *b = (const uint8_t *)&ph->s[r];
-        int cur = r == ui.row ? ui.col : 0xFF, same = !full && shown.cursor[r] == cur &&
-                                                     shown.play[r] == (r == prow);
+        int cur = r == ui.row ? ui.col : 0xFF, pend = r == ui.row ? ui.pending : -1;
+        int same = !full && shown.cursor[r] == cur && shown.play[r] == (r == prow) && shown.pend[r] == pend;
         for (c = 0; c < STEP_COLS && same; c++)
             same = shown.cells[r][c] == b[c];
         if (same)
@@ -228,6 +234,7 @@ void view_phrase_draw(int full)
         for (c = 0; c < STEP_COLS; c++)
             shown.cells[r][c] = b[c];
         shown.cursor[r] = (uint8_t)cur;
+        shown.pend[r] = (int8_t)pend;
         shown.play[r] = (uint8_t)(r == prow);
     }
 
@@ -240,7 +247,22 @@ void view_phrase_draw(int full)
         ;
     help[k++] = ' ';
     cell_text(&ph->s[ui.row], ui.col, v);
+    if (ui.pending >= 0) {
+        v[0] = "0123456789ABCDEF"[ui.pending];
+        v[1] = '_';
+        v[2] = 0;
+    }
     str_cpy(help + k, v, (int)sizeof help - k);
+    if (ui.col == STEP_NOTE) {          /* the edit step: rows down after a note */
+        for (k = 0; help[k]; k++)
+            ;
+        str_cpy(help + k, "  STEP ", (int)sizeof help - k);
+        k += 7;
+        if (k < (int)sizeof help - 2) {
+            help[k] = "0123456789ABCDEF"[ui.step];
+            help[k + 1] = 0;
+        }
+    }
     for (k = 0; k < 4 && !full && shown.knobs[k] == knobs[k]; k++)
         ;
     if (full || k < 4 || !str_eq(shown.help, help)) {

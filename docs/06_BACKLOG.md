@@ -98,7 +98,7 @@ Grille de 16 pas × 6 colonnes, en-tête, pied avec les 4 cases, curseur déplac
 
 - CA : scénario « déplacer le curseur » avec golden PNG.
 
-**☐ P1-06 — Saisie des notes et pavé hexa (M)**
+**☑ P1-06 — Saisie des notes et pavé hexa (M)**
 
 Spec §4.3 :
 - les touches entrent les notes (pré-écoute, pas d'édition) ;
@@ -109,7 +109,7 @@ Spec §4.3 :
 
 **[PROTO]** Anthony teste la saisie hexa sur les touches et le délai d'1,5 s.
 
-- CA : scénarios pour chaque mode de saisie.
+- CA : scénarios pour chaque mode de saisie (`tests/scenarios/phrase_entry.trs`). Choix : ADR-029, ADR-030.
 
 **☐ P1-07 — PLAY, tempo et vue Projet minimale (S)**
 
