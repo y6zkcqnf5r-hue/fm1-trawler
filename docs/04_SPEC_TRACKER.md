@@ -19,7 +19,7 @@ PROJECT   1                     → nom, tempo, version du format
 
 ### Structures C (`firmware/src/tracker/model.h`)
 
-Elles sont proposées telles quelles. Les limites sont des `#define` qu'on peut ajuster si la mémoire l'exige.
+Les limites (`TRK_*`) sont des `#define` de `firmware/src/app/config.h`, qu'on peut ajuster si la mémoire l'exige. Chaque taille annoncée ci-dessous est vérifiée par un `_Static_assert`.
 
 ```c
 #define TRK_TRACKS     8
@@ -43,7 +43,37 @@ typedef struct { uint8_t ticks[TRK_ROWS]; } groove_t;         /* 16 o ; 0xFF = r
 typedef struct { uint8_t type; char name[8]; uint8_t table, tic; uint8_t p[53]; } instr_t; /* 64 o */
 ```
 
-Un projet pèse environ **34 Kio** :
+Le mixer et l'en-tête du projet (ADR-022). Tout gain sur 8 bits vaut **v/0x80 : 80 = 0 dB, FF ≈ +6 dB** ; un panoramique va de 00 (gauche) à FF (droite), 80 au centre. Les envois par piste restent sur l'instrument (`SCH SDL SRV`, §5) ; le mixer porte les retours et les réglages des effets. Les valeurs par défaut des effets sont provisoires jusqu'à P3-05 et P3-06.
+
+```c
+typedef struct { uint8_t vol, pan; } mtrack_t;                    /* défaut 80, 80 */
+typedef struct {
+    mtrack_t track[TRK_TRACKS];          /* 16 o */
+    uint8_t mute, solo;                  /* bit t = piste t ; 00 */
+    uint8_t ret_cho, ret_del, ret_rev;   /* retours d'effet ; 80 */
+    uint8_t cho_rate, cho_depth;         /* 20, 40 */
+    uint8_t del_time, del_fb, del_hp;    /* temps en pas (MDT) 03, réinjection (MDF) 60, passe-haut 20 */
+    uint8_t rev_size, rev_damp;          /* taille (MRS) A0, amortissement 60 */
+    uint8_t master, tape, crush, limit;  /* 80, tape (MTP) 00, crush (MCR, 00 = coupé) 00, limiteur 01 */
+} mixer_t;                               /* 32 o */
+typedef struct {
+    uint16_t version;                    /* version du format, 1 */
+    uint16_t tempo;                      /* 40–300 BPM, défaut 120 */
+    char name[12];                       /* ASCII 32–126, complété par des 0 ; vide par défaut */
+} phdr_t;                                /* 16 o */
+typedef struct {
+    phdr_t hdr; mixer_t mixer;
+    uint8_t song[TRK_SONG_ROWS][TRK_TRACKS];
+    chain_t chain[TRK_CHAINS]; phrase_t phrase[TRK_PHRASES]; table_t table[TRK_TABLES];
+    instr_t instr[TRK_INSTRS]; groove_t groove[TRK_GROOVES];
+} project_t;                             /* 34 160 o */
+```
+
+**Projet vide** (`model_init`) : tout est `FF`, sauf les commandes FX et leurs valeurs (00), les transpositions (00), le TIC des tables et des instruments (01) ; le groove 00 vaut `06 06`, puis `FF` ; l'instrument `n` a pour table `n` et pour type `FF` (aucun moteur) ; la VOL d'une ligne de table vide (`FF`) ne change rien.
+
+**Accès (ADR-021) :** l'audio lit le projet directement, par une vue `const` ; toute écriture passe par les fonctions `*_set` de `model.c`, qui vérifient les bornes et sont le seul point que verront l'annulation (P2-06) et la sauvegarde automatique (P2-08). Le numéro d'une colonne est le décalage de son octet dans la struct (`STEP_NOTE`… `STEP_FX3_VAL`). Le **premier numéro libre** (EDIT deux fois, §4.2) est la première chain, ou phrase, vide et que rien ne référence. Une groove refuse 00 tick.
+
+Un projet pèse **34 160 octets (33,4 Kio)** :
 
 | Bloc | Taille |
 | --- | --- |
@@ -52,9 +82,9 @@ Un projet pèse environ **34 Kio** :
 | Chains | 4 096 o |
 | Instruments | 2 048 o |
 | Song | 1 024 o |
-| Grooves, mixer, en-tête | ~400 o |
+| Grooves, mixer, en-tête | 256 + 32 + 16 = 304 o |
 
-C'est sous le plafond de 48 Kio. En mémoire, le projet vit dans le pool. Le format sérialisé `.trw` est décrit au §8.
+C'est sous le plafond de 48 Kio, que vérifient un `_Static_assert` et `make size`. En mémoire, le projet vit dans le pool. Le format sérialisé `.trw` est décrit au §8.
 
 ## 2. Le séquenceur
 

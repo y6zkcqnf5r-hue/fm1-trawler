@@ -5,7 +5,10 @@
 #   make web     wasm build: build/emu/{index.html, worklet.js, keymap.js, panel.js, trawler.wasm}
 #                (emcc from the local emsdk at EMSDK_VERSION; DOCKER=1 uses the pinned image)
 #   make serve   make web, then serve build/emu on http://localhost:8080
-#   make test    lint + lint self-test + generated tables + unit tests + scenarios + wasm/native parity
+#   make test    lint + lint self-test + generated tables + unit tests + size report + scenarios +
+#                wasm/native parity
+#   make size    tools/size_report.py: RAM, pool, code and project against the FM-1 budgets
+#                (firmware/src compiled as 32-bit ELF objects by clang, ADR-020)
 #   make parity  tests/host/emu_test.mjs: the wasm and the native build give the same bytes
 #                (PARITY=0 skips it, loudly: CLAUDE.md rule 7 is then not checked)
 #   make scenarios  every tests/scenarios/*.trs into build/scenarios/<name>/, outputs checked
@@ -39,6 +42,7 @@ GEN = build/gen/tables.h build/gen/font.h
 FONT_BDF = assets/fonts/ter-u12n.bdf
 UNIT_SRC = $(wildcard tests/unit/test_*.c)
 UNIT_BIN = $(patsubst tests/unit/%.c,build/unit/%,$(UNIT_SRC))
+UNIT_LIB = $(wildcard firmware/src/tracker/*.c)   # pure code: no plat.h calls
 FIRMWARE_H = $(wildcard firmware/src/*/*.h)
 APP_SRC = $(filter-out %/plat_fm1.c,$(wildcard firmware/src/*/*.c))
 HOST_SRC = host/trawler_host.c host/scenario.c host/wav.c host/png.c
@@ -49,7 +53,13 @@ WEB_PAGE = build/emu/index.html build/emu/worklet.js build/emu/keymap.js build/e
 WASM = build/emu/trawler.wasm
 NODE ?= node
 
-.PHONY: all host web serve gen test unit scenarios run-scenarios golden parity lint lint-selftest clean
+# size report (ADR-020): the shared sources as the device sees them, APP_POOL in .pool, no libc headers
+SIZE_CC ?= clang
+SIZE_CFLAGS = --target=thumbv7m-none-eabi -ffreestanding -nostdlibinc -fno-common -DAPP_DEVICE \
+              $(CFLAGS_COMMON)
+SIZE_OBJ = $(patsubst firmware/src/%.c,build/size/%.o,$(APP_SRC))
+
+.PHONY: all host web serve gen test unit size scenarios run-scenarios golden parity lint lint-selftest clean
 
 all: test
 
@@ -116,14 +126,22 @@ build/gen/tables.h: tools/gen_tables.py
 build/gen/font.h: tools/gen_font.py $(FONT_BDF)
 	@$(PYTHON) tools/gen_font.py $(FONT_BDF) $@
 
-build/unit/%: tests/unit/%.c tests/unit/test.h $(FIRMWARE_H) $(GEN)
+build/unit/%: tests/unit/%.c tests/unit/test.h $(UNIT_LIB) $(FIRMWARE_H) $(GEN)
 	@mkdir -p build/unit
-	$(CC) $(CFLAGS_COMMON) -Itests/unit -o $@ $< -lm
+	$(CC) $(CFLAGS_COMMON) -Itests/unit -o $@ $< $(UNIT_LIB) -lm
 
 unit: $(UNIT_BIN)
 	@for t in $(UNIT_BIN); do $$t || exit 1; done
 
-test: lint lint-selftest unit scenarios parity
+build/size/%.o: firmware/src/%.c $(FIRMWARE_H) $(GEN)
+	@mkdir -p $(dir $@)
+	@command -v $(SIZE_CC) >/dev/null 2>&1 || { echo "make size: $(SIZE_CC) introuvable (il faut clang)"; exit 1; }
+	@$(SIZE_CC) $(SIZE_CFLAGS) -c $< -o $@
+
+size: $(SIZE_OBJ) tools/size_report.py firmware/src/app/config.h
+	@$(PYTHON) tools/size_report.py --config firmware/src/app/config.h $(SIZE_OBJ)
+
+test: lint lint-selftest unit size scenarios parity
 
 clean:
 	rm -rf build

@@ -66,7 +66,7 @@ GitHub Actions lance `make lint test web` et déploie `build/emu` sur GitHub Pag
 
 ## P1 — Cœur du tracker : « je tape une phrase et je l'entends »
 
-**☐ P1-01 — Modèle de données (S)**
+**☑ P1-01 — Modèle de données (S)**
 
 `model.h` et `model.c` (spec §1) : initialisation à vide, accesseurs, constantes dans `config.h`.
 

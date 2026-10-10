@@ -15,10 +15,10 @@ Le détail est dans [`docs/06_BACKLOG.md`](docs/06_BACKLOG.md).
 
 ## Construire et tester
 
-Il faut `make`, un compilateur C, Python 3, Node 20 ou plus, et Emscripten 6.0.11 : soit un emsdk local dans `~/emsdk`, soit Docker (`DOCKER=1`, image `emscripten/emsdk:6.0.11`).
+Il faut `make`, un compilateur C, clang (pour `make size`), Python 3, Node 20 ou plus, et Emscripten 6.0.11 : soit un emsdk local dans `~/emsdk`, soit Docker (`DOCKER=1`, image `emscripten/emsdk:6.0.11`).
 
 ```sh
-make test        # lint, tests unitaires, scénarios et leurs golden, parité wasm/natif
+make test        # lint, tests unitaires, rapport de taille, scénarios et leurs golden, parité wasm/natif
 make web         # build/emu : la page, le worklet et trawler.wasm
 make serve       # le FM-1 virtuel sur http://localhost:8080
 make web DOCKER=1

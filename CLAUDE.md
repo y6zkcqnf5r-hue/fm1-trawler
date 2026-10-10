@@ -30,7 +30,7 @@ Le code dans `firmware/src/` doit tourner tel quel sur la puce. Ces règles vale
    - code ≤ ~560 Kio ;
    - un projet sérialisé ≤ 48 Kio.
 
-   `tools/size_report.py` mesure ces chiffres sur le build hôte.
+   `make size` (`tools/size_report.py`) mesure ces chiffres sur `firmware/src` compilé en ELF 32 bits (ADR-020).
 5. **L'audio est un callback de 256 frames à 44,1 kHz**, soit 5,8 ms sur l'appareil. On vise moins de la moitié. Dans ce callback :
    - pas d'accès à la flash ni à l'écran, pas d'attente ;
    - les enveloppes, les LFO et les coefficients de filtre se calculent par blocs de 16 ou 32 frames.
@@ -46,6 +46,7 @@ make host        # build natif : build/host/trawler (simulateur scripté → WAV
 make web         # build wasm : build/emu/{index.html, worklet.js, trawler.wasm}
 make serve       # sert build/emu sur http://localhost:8080 (AudioWorklet = contexte sécurisé : localhost OK)
 make test        # tests unitaires hôte + scénarios + parité wasm/natif + rapport de taille
+make size        # RAM, pool, code et taille du projet face aux budgets (clang, objets ELF 32 bits)
 make lint        # vérifie : pas de float/double/malloc/printf dans firmware/src, en-têtes SPDX
 ```
 
