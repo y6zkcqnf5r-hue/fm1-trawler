@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "tracker/seq.h"
 #include "tracker/cmdq.h"
+#include "tracker/instr.h"
 #include "tracker/model.h"
 #include "dsp/voice.h"
 
@@ -15,6 +16,7 @@ volatile uint8_t seq_row[TRK_TRACKS];
 /* audio side only */
 typedef struct {
     uint8_t on, phrase, row;
+    uint8_t instr;                      /* the last one played, for a NOTE without INSTR */
     uint8_t groove, gpos;               /* groove number and entry of the step playing */
     uint8_t tick, len;                  /* tick inside the step, ticks of the step */
 } track_t;
@@ -67,11 +69,15 @@ static void trigger(int t)
 {
     const step_t *s = &g_proj->phrase[trk[t].phrase].s[trk[t].row];
     voice_t *v = &voice[t];
+    patch_t p;
     if (s->note <= NOTE_MAX) {
-        if (s->instr != TRK_EMPTY)
-            voice_note(v, s->note, s->vol != TRK_EMPTY ? s->vol : 0xFF);
-        else {
-            voice_legato(v, s->note);
+        if (s->instr != TRK_EMPTY) {
+            trk[t].instr = s->instr;
+            instr_patch(s->instr, &p);
+            voice_note(v, instr_pitch(s->instr, s->note), s->vol != TRK_EMPTY ? s->vol : 0xFF, &p);
+        } else if (trk[t].instr != TRK_EMPTY) {
+            instr_patch(trk[t].instr, &p);
+            voice_legato(v, instr_pitch(trk[t].instr, s->note), &p);
             if (s->vol != TRK_EMPTY)
                 voice_vol(v, s->vol);
         }
@@ -127,6 +133,7 @@ static void apply(uint32_t c)
         k->phrase = (uint8_t)p;
         k->row = k->gpos = k->tick = 0;
         k->groove = 0;
+        k->instr = TRK_EMPTY;
         if (!playing) {                 /* the first tick is on this sample */
             sclock_set_bpm(&clk, g_proj->hdr.tempo);
             left = 0;
@@ -143,6 +150,7 @@ void seq_init(void)
     for (t = 0; t < TRK_TRACKS; t++) {
         voice_reset(&voice[t]);
         trk[t].on = 0;
+        trk[t].instr = TRK_EMPTY;
         seq_row[t] = 0;
     }
     sclock_set_bpm(&clk, 120);

@@ -277,6 +277,30 @@ Paramètres communs à tous les types :
 
 Plus tard : `SMP` (sampler), `MID` (MIDI Out), `FM6` (portage de msfa/Dexed, sous Apache-2.0, comme Felucca).
 
+### Les octets d'un instrument (ADR-025)
+
+`instr_t.p[]` (53 octets) : les paramètres communs d'abord, identiques pour tous les types, puis ceux du moteur à partir de l'octet 24 (`tracker/instr.h`). Les projets sauvegardés stockent ces positions : un nouveau paramètre prend un octet libre de son groupe, jamais entre deux existants.
+
+| Octets | Paramètres |
+| --- | --- |
+| 0–3 | `TRN` (demi-tons, signé), `FIN` (1/128 de demi-ton, signé ; ±1 demi-ton), `VOL` (v/0x80), `PAN` (80 au centre) |
+| 4–7 | `FLT` (00 OFF, 01 LP, 02 HP, 03 BP), `CUT`, `RES`, `DRV` |
+| 8–11 | `ATK`, `DEC`, `SUS`, `REL` |
+| 12–15 | Enveloppe 2 : `ATK`, `DEC`, destination, quantité |
+| 16–19 | LFO : forme, `RAT`, destination, quantité |
+| 20–22 | `SCH`, `SDL`, `SRV` |
+| 24– | Le moteur. `WAV` : `SHP` (00 scie, 01 carré, 02 pulse, 03 triangle, 04 sinus, 05 bruit, 06–0F tables d'onde), `PW`, `VOX`, `DET`, `SUB` |
+
+Types : `00 WAV`, `01 FM4`, `02 DRM`, `FF` aucun. Un instrument sans moteur (ou d'un type pas encore écrit) ne sonne pas : la note relâche la voix. Choisir un type remet tous ses paramètres aux valeurs par défaut (`instr_set_type`).
+
+### Le moteur `WAV` (P1-03)
+
+- **Oscillateurs :** scie et carré anticrénelés par polyBLEP (Välimäki et Huovilainen, 2007), en point fixe ; triangle et sinus calculés directement (le coin du triangle crénèle 40 dB sous une scie brute). Sous 12 kHz, le repli d'une scie à 3 520 Hz descend de −21 à −46 dB. Pulse, bruit et tables d'onde : P3-07 (d'ici là, pulse joue le carré).
+- **Filtre :** SVF « trapézoïdal » d'Andrew Simper (Cytomic), stable à toutes les coupures et résonances. `CUT` 00–FF va de 30 Hz à 18 kHz, en exponentielle. `RES` FF donne un gain d'environ 43 à la résonance ; le signal est écrêté à la pleine échelle après le filtre.
+- **Enveloppe :** `ATK` linéaire ; `DEC` et `REL` exponentiels (−60 dB dans le temps indiqué) ; temps de 1 ms (00) à 10 s (FF), en exponentielle (80 ≈ 100 ms). Fin à −72 dB, puis silence exact.
+- **VOL** : v/0x80, multiplié par le VOL du pas (FF = 1). **PAN** : balance ; le côté opposé baisse, le côté proche reste à 0 dB (80 = les deux à 0 dB).
+- Défauts : scie, LP, `CUT` C0, `RES` 20, `ATK` 00, `DEC` 80, `SUS` C0, `REL` 70, `VOL` 80, `PAN` 80.
+
 ## 6. Les commandes FX (MVP)
 
 Chaque commande s'écrit en 3 lettres suivies de 2 chiffres hexa. Les codes sont un `enum` dans `fx.h`, avec une table de noms. **On n'ajoute de nouveaux codes qu'à la fin de l'enum** : les projets sauvegardés stockent les numéros.

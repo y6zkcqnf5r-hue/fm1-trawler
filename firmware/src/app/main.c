@@ -7,6 +7,7 @@
  * while it plays, the step shows on the white keys (dim). Until P1-06 lets you type a phrase. */
 #include "app/plat.h"
 #include "dsp/fixed.h"
+#include "tracker/instr.h"
 #include "tracker/model.h"
 #include "tracker/seq.h"
 #include "ui/gfx.h"
@@ -66,7 +67,7 @@ static uint32_t white_bit(int w)
     return 0;
 }
 
-/* C-4 D#4 G-4 A#4 on steps 0 4 8 12 (G-4 at VOL 80), OFF on step E, instrument 00 */
+/* C-4 D#4 G-4 A#4 on steps 0 4 8 12 (G-4 at VOL 80), OFF on step E, instrument 00 (WAV) */
 static void demo_phrase(void)
 {
     static const uint8_t NOTES[4] = {48, 51, 55, 58};
@@ -77,6 +78,9 @@ static void demo_phrase(void)
     }
     phrase_set(0, 8, STEP_VOL, 0x80);
     phrase_set(0, 14, STEP_NOTE, NOTE_OFF);
+    instr_set_type(0, INSTR_WAV);       /* a saw through a resonant low-pass */
+    instr_set(0, INSTR_P + IP_CUT, 0x90);
+    instr_set(0, INSTR_P + IP_RES, 0x80);
 }
 
 static void draw_keys(uint32_t keys)

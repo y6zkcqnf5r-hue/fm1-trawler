@@ -13,7 +13,8 @@
 #                (PARITY=0 skips it, loudly: CLAUDE.md rule 7 is then not checked)
 #   make scenarios  every tests/scenarios/*.trs into build/scenarios/<name>/, outputs checked
 #                against tests/golden/<name>.sha256
-#   make golden  play the scenarios and accept their WAV and PNG as the new golden hashes
+#   make golden  play the scenarios and the unit tests, accept their WAV and PNG as the new golden
+#                hashes (tests/golden/, and tests/golden/renders/ for the unit tests' reference renders)
 #   make gen     build/gen/tables.h (tools/gen_tables.py), build/gen/font.h (tools/gen_font.py)
 #   make lint    chip rules on firmware/src, SPDX headers everywhere
 #   make clean
@@ -59,7 +60,7 @@ SIZE_CFLAGS = --target=thumbv7m-none-eabi -ffreestanding -nostdlibinc -fno-commo
               $(CFLAGS_COMMON)
 SIZE_OBJ = $(patsubst firmware/src/%.c,build/size/%.o,$(APP_SRC))
 
-.PHONY: all host web serve gen test unit size scenarios run-scenarios golden parity lint lint-selftest clean
+.PHONY: all host web serve gen test unit run-unit size scenarios run-scenarios golden parity lint lint-selftest clean
 
 all: test
 
@@ -80,8 +81,9 @@ run-scenarios: $(HOST_BIN)
 scenarios: run-scenarios
 	@$(PYTHON) tests/host/golden.py check build/scenarios tests/golden
 
-golden: run-scenarios
+golden: run-scenarios run-unit
 	@$(PYTHON) tests/host/golden.py accept build/scenarios tests/golden
+	@$(PYTHON) tests/host/golden.py accept build/renders tests/golden/renders
 
 web: $(WASM) $(WEB_PAGE)
 
@@ -130,8 +132,14 @@ build/unit/%: tests/unit/%.c tests/unit/test.h $(UNIT_LIB) $(FIRMWARE_H) $(GEN)
 	@mkdir -p build/unit
 	$(CC) $(CFLAGS_COMMON) -Itests/unit -o $@ $< $(UNIT_LIB) -lm
 
-unit: $(UNIT_BIN)
+# the unit tests also write reference renders in build/renders/<suite>/ (tests/unit/render.h)
+run-unit: $(UNIT_BIN)
+	@rm -rf build/renders
 	@for t in $(UNIT_BIN); do $$t || exit 1; done
+
+unit: run-unit
+	@$(PYTHON) tests/host/check_outputs.py build/renders
+	@$(PYTHON) tests/host/golden.py check build/renders tests/golden/renders
 
 build/size/%.o: firmware/src/%.c $(FIRMWARE_H) $(GEN)
 	@mkdir -p $(dir $@)

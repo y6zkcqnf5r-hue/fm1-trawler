@@ -79,7 +79,7 @@ Spec §2 : Q8 exact à l'échantillon, découpe du bloc aux ticks, groove 0 (06/
 - CA : test sans dérive, l'écart cumulé sur 10 min doit rester sous 1 échantillon.
 - CA : golden WAV d'une phrase de 4 notes à 120 BPM.
 
-**☐ P1-03 — Moteur `WAV`, première version (M)**
+**☑ P1-03 — Moteur `WAV`, première version (M)**
 
 Scie, carré et triangle anticrénelés (polyBLEP en point fixe), filtre SVF LP/HP/BP, enveloppe ADSR, `VOL`, `PAN`. Coût déclaré (archi §7).
 

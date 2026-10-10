@@ -5,6 +5,7 @@
 #include <string.h>
 #include "test.h"
 #include "tracker/cmdq.h"
+#include "tracker/instr.h"
 #include "tracker/model.h"
 #include "tracker/seq.h"
 #include "dsp/voice.h"
@@ -36,6 +37,16 @@ static void render(int32_t *out, int n, int block)
     }
 }
 
+/* instrument 00: a plain sine (no filter, full sustain, 32 ms release), so timing is easy to see */
+static void sine_instr(void)
+{
+    instr_set_type(0, INSTR_WAV);
+    instr_set(0, INSTR_P + IP_WAV_SHP, SHP_SIN);
+    instr_set(0, INSTR_P + IP_FLT, FLT_OFF);
+    instr_set(0, INSTR_P + IP_SUS, 0xFF);
+    instr_set(0, INSTR_P + IP_REL, 0x60);
+}
+
 static int first_sound(const int32_t *out, int n)
 {
     int i;
@@ -48,6 +59,7 @@ static int first_sound(const int32_t *out, int n)
 static void one_note(int step)
 {
     model_init();
+    sine_instr();
     phrase_set(0, step, STEP_NOTE, 48);
     phrase_set(0, step, STEP_INSTR, 0);
 }
@@ -125,6 +137,7 @@ static void test_loop_and_off(void)
 static void test_blocks(void)
 {
     model_init();
+    sine_instr();
     phrase_set(0, 0, STEP_NOTE, 48);
     phrase_set(0, 0, STEP_INSTR, 0);
     phrase_set(0, 3, STEP_NOTE, 55);                 /* legato */
@@ -150,8 +163,10 @@ static void test_fade(void)
 {
     static int32_t lr[2 * 4000];
     voice_t v;
+    patch_t pt;
     int i, n, worst = 0, ok_inc = 0;
     model_init();
+    sine_instr();
     phrase_set(0, 0, STEP_NOTE, 57);
     phrase_set(0, 0, STEP_INSTR, 0);
     phrase_set(0, 1, STEP_NOTE, 81);                 /* two octaves up, on step 1 */
@@ -166,13 +181,14 @@ static void test_fade(void)
     CHECK(worst <= 4200);
     printf("  fade: largest step between two samples %d\n", worst);
 
+    instr_patch(0, &pt);
     for (n = 0; n < 16; n++) {                       /* the new note, wherever the sub-block is */
         voice_reset(&v);
-        voice_note(&v, 57, 0xFF);
+        voice_note(&v, 57 * 16, 0xFF, &pt);
         memset(lr, 0, sizeof lr);
         voice_render(&v, lr, 1000 + n);
-        voice_note(&v, 69, 0xFF);
-        for (i = 0; i < 200 && v.inc != note_inc(69, 0); i++)
+        voice_note(&v, 69 * 16, 0xFF, &pt);
+        for (i = 0; i < 200 && v.osc.inc != note_inc(69, 0); i++)
             voice_render(&v, lr, 1);
         if (i - 1 <= 96)                             /* i - 1 frames of fade, then the note */
             ok_inc++;

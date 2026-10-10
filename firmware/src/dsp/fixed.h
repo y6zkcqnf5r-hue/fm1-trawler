@@ -70,3 +70,23 @@ static inline uint32_t note_inc(int32_t note, int32_t fine)
 {
     return pitch_inc(note * PITCH_FINE + fine);
 }
+
+/* floor(2^shift / d), for a quotient that fits 32 bits, d > 0, d < 2^31, shift <= 62: a long division
+ * with 32-bit operations only (no 64-bit division on the device, CLAUDE.md rule 2). shift + 1
+ * iterations: for control-rate use (filter coefficients), not per sample. d == 0 gives 0. */
+static inline uint32_t div_pow2(int shift, uint32_t d)
+{
+    uint32_t q = 0, r = 0;
+    int i;
+    if (!d)
+        return 0;
+    for (i = shift; i >= 0; i--) {
+        r = (r << 1) | (i == shift);
+        if (r >= d) {
+            r -= d;
+            if (i < 32)
+                q |= 1u << i;
+        }
+    }
+    return q;
+}

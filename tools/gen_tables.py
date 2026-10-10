@@ -37,6 +37,19 @@ def pitch_inc_exact(p):
     return int(f / FS * 2 ** 32)
 
 
+SUB = 16             # frames per control sub-block (CLAUDE.md rule 5)
+CUT_LO, CUT_HI = 30.0, 18000.0   # filter cutoff of CUT 00 and FF, in Hz (exponential between)
+ENV_LO, ENV_HI = 0.001, 10.0     # envelope time of 00 and FF, in s (exponential between)
+
+
+def cut_hz(v):
+    return CUT_LO * (CUT_HI / CUT_LO) ** (v / 255.0)
+
+
+def env_s(v):
+    return ENV_LO * (ENV_HI / ENV_LO) ** (v / 255.0)
+
+
 def main(path):
     sine = [int(round(32767 * math.sin(2 * math.pi * i / SINE_N))) for i in range(SINE_N + 1)]
 
@@ -68,6 +81,22 @@ def main(path):
     L += arr("SINE_Q15", "int16_t", sine)
     L += [""]
     L += arr("PITCH_OCT", "uint32_t", top, 8)
+
+    # TPT state-variable filter: g = tan(pi fc / FS) in Q16, for CUT 00..FF (dsp/svf.c)
+    svf_g = [int(round(math.tan(math.pi * cut_hz(v) / FS) * 65536)) for v in range(256)]
+    assert 0 < svf_g[0] and svf_g[-1] < 8 * 65536
+    # envelopes (dsp/env.c), per sub-block of SUB frames, Q24 (1.0 = 2^24):
+    #   attack: linear 0 -> 1 in env_s(v);  decay and release: exponential, -60 dB in env_s(v)
+    atk = [max(1, int(round(2 ** 24 * SUB / (env_s(v) * FS)))) for v in range(256)]
+    coef = [min(2 ** 24, max(1, int(round(2 ** 24 * (1 - math.exp(-SUB * math.log(1000) / (env_s(v) * FS)))))))
+            for v in range(256)]
+    L += [""]
+    L += ["#define SUB_FRAMES %d" % SUB, ""]
+    L += arr("SVF_G_Q16", "uint32_t", svf_g, 8)
+    L += [""]
+    L += arr("ENV_ATK_Q24", "uint32_t", atk, 8)
+    L += [""]
+    L += arr("ENV_COEF_Q24", "uint32_t", coef, 8)
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text("\n".join(L) + "\n")
 
