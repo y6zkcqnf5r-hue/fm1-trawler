@@ -30,7 +30,7 @@ Le même code de `firmware/src/` se compile pour trois cibles, qui ne diffèrent
 FM1/                               (ce dossier = la racine du repo)
 ├─ CLAUDE.md  README.md  LICENSE (GPL-3.0)  LICENSING.md  Makefile  .gitignore
 ├─ docs/                           PRD, spec, archi, backlog, décisions
-├─ assets/fonts/                   ter-u12n.bdf (Terminus 6×12, OFL, police provisoire de P0-04)
+├─ assets/fonts/                   ter-u12n.bdf, ter-u16n.bdf (Terminus 6×12 et 8×16, OFL ; faces 6×10 et 8×12 découpées, ADR-027)
 ├─ firmware/
 │  ├─ src/
 │  │  ├─ app/   plat.h  main.c  config.h (limites, budgets)  plat_fm1.c (P5)
@@ -212,7 +212,7 @@ La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : l
 - chaque WAV et PNG produit doit y figurer avec le même hash, et chaque ligne doit avoir son fichier ;
 - `make golden` rejoue les scénarios et réécrit les `.sha256`. On ne le lance qu'après avoir écouté le WAV et regardé le PNG, et le diff des `.sha256` part dans le commit.
 
-**La police provisoire :** `tools/gen_font.py` convertit `assets/fonts/ter-u12n.bdf` en `build/gen/font.h` (ASCII 32–126, une ligne par octet), et `ui/gfx.c` en dessine le texte. P1-04 l'étend (Q-02).
+**Les polices :** `tools/gen_font.py` convertit les BDF de `assets/fonts/` en `build/gen/font.h` (ASCII 32–126, une ligne par octet) : trois faces, 6×12, 6×10 et 8×12, les deux dernières découpées dans Terminus (ADR-027). `ui/gfx.c` dessine rectangles, lignes, cadres et texte, et `ui/gfx.h` porte les couleurs du thème. `make mockups` dessine la vue Phrase dans les deux faces (`docs/mockups/`, Q-02).
 
 **Le format :** une commande par ligne. Un `#` en début de mot ouvre un commentaire (`C#4` n'en est pas un).
 

@@ -16,14 +16,16 @@ Chaque fichier source commence par `SPDX-License-Identifier: GPL-3.0-only`. Le c
 | Test de parité `tests/host/emu_test.mjs` : le module chargé dans node avec les bouchons du worklet, comparaison échantillon par échantillon avec le natif | [ChoralRootFM1](https://github.com/Quixotic7/ChoralRootFM1) `tools/emu/web/test_web_emu.mjs` (Quixotic7) ; réécrit pour Trawler | GPL-3.0-only |
 | CI `.github/workflows/ci.yml` : actions épinglées par commit, Pages par `upload-pages-artifact` et `deploy-pages` | [ChoralRootFM1](https://github.com/Quixotic7/ChoralRootFM1) `.github/workflows/pages.yml` (Quixotic7) ; réécrit pour Trawler | GPL-3.0-only |
 | Emscripten en Docker sous l'utilisateur courant, cache dans le dossier de build (`Makefile`, `DOCKER=1`) | [Hortator](https://github.com/deadactive/hortator) `tools/build_sim.sh` (DEADACTIVE) | GPL-3.0-only |
-| Générateur de police `tools/gen_font.py` (lecture du BDF), `firmware/src/ui/gfx.c` | Trawler | GPL-3.0-only |
+| Générateur de police `tools/gen_font.py` (lecture du BDF, découpe), `firmware/src/ui/gfx.c`, maquettes `host/mockup.c` et `tools/mockup_sheet.py` | Trawler | GPL-3.0-only |
+| Filtre `firmware/src/dsp/svf.c` | Écrit d'après les équations publiées du « Linear Trapezoidal Integrated SVF » d'Andrew Simper (Cytomic, 2013) ; aucun code repris | GPL-3.0-only |
+| Oscillateurs `firmware/src/dsp/osc.h` (polyBLEP) | Écrit d'après Välimäki et Huovilainen, « Antialiasing oscillators in subtractive synthesis » (IEEE SPM, 2007) ; aucun code repris | GPL-3.0-only |
 | Tout le reste | Trawler | GPL-3.0-only |
 
 ## Matériel tiers
 
 | Quoi | Origine | Licence | Fichiers |
 | --- | --- | --- | --- |
-| Police Terminus 12 px (6×12), la police provisoire de P0-04 | Copyright (C) 2020 Dimitar Toshkov Zhekov, copiée depuis [X0X](https://github.com/charlesvestal/fm1-x0x) `assets/fonts/` | SIL OFL 1.1 | `assets/fonts/ter-u12n.bdf`, `assets/fonts/Terminus-LICENSE.txt` ; les glyphes générés dans `build/gen/font.h` restent sous OFL |
+| Police Terminus 12 px (6×12) et 16 px (8×16) | Copyright (C) 2020 Dimitar Toshkov Zhekov, copiées depuis [X0X](https://github.com/charlesvestal/fm1-x0x) `assets/fonts/` | SIL OFL 1.1 | `assets/fonts/ter-u12n.bdf`, `assets/fonts/ter-u16n.bdf`, `assets/fonts/Terminus-LICENSE.txt` ; les glyphes générés dans `build/gen/font.h` restent sous OFL. Les faces 6×10 (Terminus 12, lignes 1–10) et 8×12 (Terminus 16, lignes 2–13) sont des versions modifiées au sens de l'OFL, générées par `tools/gen_font.py` (ADR-027) ; la licence ne réserve aucun nom de police |
 
 ## Marques
 

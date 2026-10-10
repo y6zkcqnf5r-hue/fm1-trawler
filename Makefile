@@ -17,6 +17,7 @@
 #                hashes (tests/golden/, and tests/golden/renders/ for the unit tests' reference renders)
 #   make gen     build/gen/tables.h (tools/gen_tables.py), build/gen/font.h (tools/gen_font.py)
 #   make lint    chip rules on firmware/src, SPDX headers everywhere
+#   make mockups docs/mockups/: the Phrase view in the 6x10 and the 8x12 face (P1-04, Q-02)
 #   make clean
 
 CC ?= cc
@@ -40,7 +41,10 @@ endif
 
 PYTHON ?= python3
 GEN = build/gen/tables.h build/gen/font.h
-FONT_BDF = assets/fonts/ter-u12n.bdf
+FONT_BDF = assets/fonts/ter-u12n.bdf assets/fonts/ter-u16n.bdf
+# the faces (ADR-027): Terminus 12 as is, cut to 6x10, and Terminus 16 cut to 8x12
+FONTS = FONT_6X12=assets/fonts/ter-u12n.bdf FONT_6X10=assets/fonts/ter-u12n.bdf:1:10 \
+        FONT_8X12=assets/fonts/ter-u16n.bdf:2:12
 UNIT_SRC = $(wildcard tests/unit/test_*.c)
 UNIT_BIN = $(patsubst tests/unit/%.c,build/unit/%,$(UNIT_SRC))
 UNIT_LIB = $(wildcard firmware/src/tracker/*.c firmware/src/dsp/*.c)   # pure code: no plat.h calls
@@ -60,7 +64,7 @@ SIZE_CFLAGS = --target=thumbv7m-none-eabi -ffreestanding -nostdlibinc -fno-commo
               $(CFLAGS_COMMON)
 SIZE_OBJ = $(patsubst firmware/src/%.c,build/size/%.o,$(APP_SRC))
 
-.PHONY: all host web serve gen test unit run-unit size scenarios run-scenarios golden parity lint lint-selftest clean
+.PHONY: all host web serve gen test unit run-unit size mockups scenarios run-scenarios golden parity lint lint-selftest clean
 
 all: test
 
@@ -84,6 +88,18 @@ scenarios: run-scenarios
 golden: run-scenarios run-unit
 	@$(PYTHON) tests/host/golden.py accept build/scenarios tests/golden
 	@$(PYTHON) tests/host/golden.py accept build/renders tests/golden/renders
+
+# P1-04: the two faces on the Phrase view, drawn by ui/gfx.c (committed: docs/mockups/)
+build/host/mockup: host/mockup.c host/png.c firmware/src/ui/gfx.c $(wildcard host/*.h) $(FIRMWARE_H) $(GEN)
+	@mkdir -p build/host
+	$(CC) $(CFLAGS_COMMON) -DAPP_HOST -Ihost -o $@ host/mockup.c host/png.c firmware/src/ui/gfx.c
+
+mockups: build/host/mockup tools/mockup_sheet.py
+	@mkdir -p docs/mockups
+	@build/host/mockup docs/mockups
+	@$(PYTHON) tools/mockup_sheet.py docs/mockups/phrase_compare_x2.png 2 docs/mockups/phrase_6x10.png \
+	    docs/mockups/phrase_8x12.png
+	@echo "mockups: docs/mockups/phrase_compare_x2.png"
 
 web: $(WASM) $(WEB_PAGE)
 
@@ -126,11 +142,15 @@ build/gen/tables.h: tools/gen_tables.py
 	@$(PYTHON) tools/gen_tables.py $@
 
 build/gen/font.h: tools/gen_font.py $(FONT_BDF)
-	@$(PYTHON) tools/gen_font.py $(FONT_BDF) $@
+	@$(PYTHON) tools/gen_font.py $@ $(FONTS)
 
 build/unit/%: tests/unit/%.c tests/unit/test.h $(UNIT_LIB) $(FIRMWARE_H) $(GEN)
 	@mkdir -p build/unit
 	$(CC) $(CFLAGS_COMMON) -Itests/unit -o $@ $< $(UNIT_LIB) -lm
+
+# the tests of ui/ bring their own lcd_fill / lcd_blit (a fake screen)
+build/unit/test_gfx: firmware/src/ui/gfx.c
+build/unit/test_gfx: UNIT_LIB += firmware/src/ui/gfx.c
 
 # the unit tests also write reference renders in build/renders/<suite>/ (tests/unit/render.h)
 run-unit: $(UNIT_BIN)

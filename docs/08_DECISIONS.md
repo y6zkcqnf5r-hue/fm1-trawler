@@ -34,11 +34,13 @@
 | ADR-025 | 2026-10-10 | **Disposition de `instr_t.p[]`** : paramètres communs aux octets 0–22, moteur à partir de 24 (spec §5) ; types `00 WAV`, `01 FM4`, `02 DRM`, `FF` aucun ; un instrument sans moteur ne sonne pas | Les mêmes octets pour tous les types : changer de type garde le sens de `VOL`, `CUT`… et l'interface de P2-04 les affiche dans le même ordre. Comme le M8, un instrument vide est muet |
 | ADR-026 | 2026-10-10 | **Moteur `WAV` v1** : polyBLEP sur scie et carré, triangle et sinus directs ; SVF trapézoïdal de Simper, états avec 8 bits de fraction, coefficients Q30 calculés par une division longue en 32 bits (`div_pow2`) ; enveloppe en Q24 par sous-blocs de 16 ; `CUT` 30 Hz–18 kHz et temps 1 ms–10 s en exponentielle ; panoramique en balance ; voix à −6 dB | Le SVF de Chamberlin diverge aux hautes coupures ; la forme trapézoïdale reste stable même à `RES` FF. Sans fraction, un passe-bas à 30 Hz restait bloqué (incréments < 1 LSB). La division longue évite toute division 64 bits (règle 2), à 51 tours par note seulement. La balance garde le 0 dB au centre, comme la voix de P1-02. Tout est vérifié contre un modèle en double (`test_wav.c`) |
 
+| ADR-027 | 2026-10-10 | **Trois faces, toutes tirées de Terminus** (OFL) par `tools/gen_font.py` : 6×12 telle quelle (hello, titres agrandis), **6×10** (Terminus 12, lignes 1–10) et **8×12** (Terminus 16, lignes 2–13). La découpe garde tous les pixels des caractères du tracker (majuscules, chiffres, `#-_.:/+<>[]()=*!?%&`) ; seules les queues de `g j p q y` et le haut de `" ' $ ^ ~` sont rognés. Thème « port de nuit » maison (`ui/gfx.h`) | Aucune police 6×10 ni 8×12 libre n'était à disposition sans téléchargement ; Terminus est déjà dans le projet, et l'OFL permet les versions modifiées. Le générateur refuse une découpe qui toucherait un caractère du tracker. Les couleurs ne reprennent celles d'aucun autre tracker (règle 9) |
+
 ## Questions ouvertes
 
 | # | Question | À trancher avant | Piste |
 | --- | --- | --- | --- |
-| Q-02 | La police : 6×10 ou 8×12 ? | P1-05 | Maquettes de P1-04 |
+| Q-02 | La police : 6×10 ou 8×12 ? | Anthony, après P1-05 | Maquettes de P1-04 : `docs/mockups/phrase_compare_x2.png` (6×10 à gauche, 8×12 à droite). **Provisoirement 8×12** (glyphes plus grands sur un écran de 240 px, une ligne de phrase en 30 colonnes pile comme la spec §3) ; la vue Phrase de P1-05 est écrite pour passer en 6×10 en changeant une constante, puis `make golden` |
 | Q-03 | Le rôle des KNOB1–4 en Song, Chain et Phrase : réglages du son en direct, ou champs de la ligne ? | P1-06 | Prototype |
 | Q-04 | La saisie hexa sur les touches : délai d'1,5 s, ou validation par EDIT ? | P1-06 | Prototype |
 | Q-05 | Sortie stéréo ou mono ? | P3-05 | Stéréo prévue (panoramique, chorus) ; à revoir si le CPU manque |

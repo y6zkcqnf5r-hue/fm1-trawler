@@ -86,11 +86,11 @@ Scie, carré et triangle anticrénelés (polyBLEP en point fixe), filtre SVF LP/
 - CA : golden WAV de chaque forme d'onde.
 - CA : aucun débordement à résonance maximale (test de saturation).
 
-**☐ P1-04 — Police et primitives graphiques (S)**
+**☑ P1-04 — Police et primitives graphiques (S)**
 
 `gfx.c` (rectangles, texte, couleurs du thème) et `font.c` généré par `gen_font.py`. **[PROTO]** On produit deux maquettes de la vue Phrase, en 6×10 et en 8×12, et Anthony choisit.
 
-- CA : deux PNG de comparaison produits dans `docs/mockups/`.
+- CA : deux PNG de comparaison produits dans `docs/mockups/` (`make mockups`). Choix provisoire : 8×12, à confirmer (Q-02).
 
 **☐ P1-05 — Vue Phrase : affichage et curseur (M)**
 
