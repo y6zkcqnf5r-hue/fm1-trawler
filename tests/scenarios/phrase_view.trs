@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# phrase_view (P1-05): the Phrase view, its cursor moved by SELECT (row) and ALGORITHM (column),
+# drawn again only where it changed; the keys play; the playhead and the step on the white keys
+wait 100
+expect view 0
+expect track 0
+expect phrase 0
+expect cursor row 0
+expect cursor col 0
+expect octave 3
+expect lit_buttons 0x800
+expect cell 0 0 48
+expect cell 14 0 0xFE
+shot view_start.png
+# the cursor
+turn SELECT 3
+expect cursor row 3
+turn ALGO 2
+expect cursor col 2
+shot view_cursor.png
+turn SELECT -10
+expect cursor row 0
+turn ALGO 20
+expect cursor col 8
+turn SELECT 20
+expect cursor row 15
+shot view_corner.png
+turn ALGO -8
+turn SELECT -11
+expect cursor row 4
+expect cursor col 0
+# a cursor move redraws the rows it touches and the help line, not the screen (> 400 blits)
+blitsreset
+turn ALGO 1
+expect blits <80
+expect blits >20
+blitsreset
+wait 500
+expect blits 0
+# the keys play the note, last one wins, and light
+peakreset
+key C4 down
+wait 200
+expect lit_keys 0x80
+expect peak >2000
+key C4 up
+wait 400
+peakreset
+wait 100
+expect peak 0
+# OCT- / OCT+: the keyboard octave, 0..8, in the header
+tap OCT+
+expect octave 4
+shot view_oct.png
+tap OCT-
+tap OCT-
+tap OCT-
+tap OCT-
+expect octave 0
+tap OCT-
+expect octave 0
+tap OCT+
+tap OCT+
+tap OCT+
+expect octave 3
+# MASTER at 0: silent
+master 0
+key C4 down
+wait 100
+peakreset
+wait 100
+expect peak 0
+key C4 up
+master 2048
+wait 400
+# PLAY: the row playing is lit, its step shows on the white keys (dim)
+tap PLAY
+wait 600
+expect lit_buttons 0x1800
+expect dim_keys >0
+shot view_playing.png
+tap PLAY
+expect lit_buttons 0x800
+expect dim_keys 0
+wait 300
+shot view_stopped.png

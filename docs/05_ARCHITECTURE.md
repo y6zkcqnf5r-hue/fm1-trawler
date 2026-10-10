@@ -230,6 +230,7 @@ La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : l
 | `shot FICHIER.png` | Capture l'écran |
 | `leds` | Affiche les LED allumées |
 | `peakreset` | Remet le pic de sortie à zéro |
+| `blitsreset` | Remet à zéro le compteur d'appels à l'écran |
 | `echo TEXTE` | Affiche une trace |
 | `expect QUOI [ARGS] VAL` | Vérifie une sonde. VAL vaut `N`, `0xN`, `<N` ou `>N` |
 
@@ -238,7 +239,7 @@ La sortie est saturée à 16 bits (ADR-012), puis passe à `host_audio_sink` : l
 - **ENC :** `SELECT ALGO K1 K2 K3 K4 PRESETS`.
 - **K :** `0` à `26` (0 = F3), `w0` à `w15` pour les touches blanches, `b0` à `b10` pour les noires, ou une note de `F3` à `G5` (`C4`, `C#4` ou `C-4`).
 
-**Les sondes de `expect` :** `ms`, `buttons`, `keys`, `enc ENC` (les crans que l'app n'a pas encore lus), `lit_buttons`, `lit_keys`, `dim_keys`, `play_red`, `blits`, `pixel X Y` (RGB565), `wav_frames`, `peak`, `midi_out`, `store_writes`. Les stories suivantes ajouteront l'état de l'app (`cell`, `view`, …) à la table `PROBES` de `host/scenario.c`.
+**Les sondes de `expect` :** `ms`, `buttons`, `keys`, `enc ENC` (les crans que l'app n'a pas encore lus), `lit_buttons`, `lit_keys`, `dim_keys`, `play_red`, `blits`, `pixel X Y` (RGB565), `wav_frames`, `peak`, `midi_out`, `store_writes`, et l'état de l'app (`ui_probe()` de `ui/ui.h`) : `view`, `track`, `phrase`, `cursor row|col`, `octave`, `cell LIGNE COLONNE` (l'octet de la phrase éditée, colonne `STEP_*`). `blitsreset` remet le compteur `blits` à zéro, pour mesurer ce qu'un geste redessine.
 
 ## 7. Le budget CPU sans appareil (modèle de coût)
 

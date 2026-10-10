@@ -172,6 +172,8 @@ F OFF -- -- ----- ----- -----
 | **Groove** | `GLO` | 16 entrées de ticks, avec la durée totale de la phrase en ticks. Un deuxième appui ouvre la vue **Projet** : tempo, nom, emplacements, nouveau, charger, sauvegarder |
 | **Mixer** | `FX` | Volume et panoramique des 8 pistes, mute/solo, vumètres. Un deuxième appui ouvre **Effets** : chorus, delay, réverbe, tape, crush, limiteur |
 
+**Vue Phrase (P1-05) :** en-tête `PHRASE 00`, `T1`, ▶ (vert, en lecture) ou ■, tempo, `OCT3`, mini-carte ; une ligne de 12 px par pas, numéro du pas en hexa (en couleur tous les 4 pas) ; cellule vide en `--`/`---` gris ; curseur sur fond ambre ; ligne jouée sur fond bleu nuit ; pied : `CUT RES SDL SRV` de l'instrument, puis le nom de la colonne et sa valeur. Le choix de la face reste ouvert (Q-02).
+
 La **mini-carte** en haut à droite montre la position dans la chaîne de vues `Song → Chain → Phrase → Instr → Table`, pour naviguer en profondeur comme sur le M8.
 
 ## 4. Les contrôles du FM-1

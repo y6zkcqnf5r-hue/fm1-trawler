@@ -7,8 +7,8 @@
 
 #define STEP_TICKS_DEFAULT 6            /* an empty groove still moves on */
 
-enum { OP_PLAY_PHRASE = 1, OP_STOP = 2 };
-#define CMD(op, a, b) ((uint32_t)(op) << 24 | (uint32_t)(a) << 8 | (uint32_t)(b))
+enum { OP_PLAY_PHRASE = 1, OP_STOP, OP_PREVIEW, OP_PREVIEW_OFF };
+#define CMD(op, a, b, c) ((uint32_t)(op) << 24 | (uint32_t)(a) << 16 | (uint32_t)(b) << 8 | (uint32_t)(c))
 
 volatile uint8_t seq_playing;
 volatile uint8_t seq_row[TRK_TRACKS];
@@ -124,10 +124,18 @@ static void stop(void)
 
 static void apply(uint32_t c)
 {
-    int op = (int)(c >> 24), t = (int)(c >> 8 & 0xFF), p = (int)(c & 0xFF);
+    int op = (int)(c >> 24), t = (int)(c >> 16 & 0xFF), b = (int)(c >> 8 & 0xFF), p = (int)(c & 0xFF);
+    if (t >= TRK_TRACKS)
+        return;
     if (op == OP_STOP)
         stop();
-    else if (op == OP_PLAY_PHRASE && t < TRK_TRACKS && p < TRK_PHRASES) {
+    else if (op == OP_PREVIEW && b < TRK_INSTRS && p <= NOTE_MAX) {
+        patch_t pt;
+        instr_patch(b, &pt);
+        voice_note(&voice[t], instr_pitch(b, p), 0xFF, &pt);
+    } else if (op == OP_PREVIEW_OFF)
+        voice_off(&voice[t]);
+    else if (op == OP_PLAY_PHRASE && p < TRK_PHRASES) {
         track_t *k = &trk[t];
         k->on = 1;
         k->phrase = (uint8_t)p;
@@ -163,10 +171,19 @@ int seq_cmd_play_phrase(int track, int phrase)
 {
     if (track < 0 || track >= TRK_TRACKS || phrase < 0 || phrase >= TRK_PHRASES)
         return -1;
-    return cmdq_push(CMD(OP_PLAY_PHRASE, track, phrase));
+    return cmdq_push(CMD(OP_PLAY_PHRASE, track, 0, phrase));
 }
 
-int seq_cmd_stop(void) { return cmdq_push(CMD(OP_STOP, 0, 0)); }
+int seq_cmd_stop(void) { return cmdq_push(CMD(OP_STOP, 0, 0, 0)); }
+
+int seq_cmd_preview(int track, int instr, int note)
+{
+    if (track < 0 || track >= TRK_TRACKS || instr < 0 || instr >= TRK_INSTRS || note > NOTE_MAX)
+        return -1;
+    if (note < 0)
+        return cmdq_push(CMD(OP_PREVIEW_OFF, track, 0, 0));
+    return cmdq_push(CMD(OP_PREVIEW, track, instr, note));
+}
 
 void seq_render(int32_t *lr, int n)
 {

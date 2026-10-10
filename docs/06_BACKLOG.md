@@ -92,7 +92,7 @@ Scie, carré et triangle anticrénelés (polyBLEP en point fixe), filtre SVF LP/
 
 - CA : deux PNG de comparaison produits dans `docs/mockups/` (`make mockups`). Choix provisoire : 8×12, à confirmer (Q-02).
 
-**☐ P1-05 — Vue Phrase : affichage et curseur (M)**
+**☑ P1-05 — Vue Phrase : affichage et curseur (M)**
 
 Grille de 16 pas × 6 colonnes, en-tête, pied avec les 4 cases, curseur déplacé par SELECT et ALGORITHM, playhead surligné, LED de position sur les touches blanches. Redessiner seulement les zones qui changent.
 

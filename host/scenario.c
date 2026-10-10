@@ -19,6 +19,7 @@
  *   shot FILE.png                 save the screen
  *   leds                          print the lit buttons and keys
  *   peakreset                     restart the output peak
+ *   blitsreset                    restart the count of lcd_fill + lcd_blit calls (expect blits)
  *   expect WHAT [ARGS] VAL        VAL is N, 0xN, <N or >N; WHAT is a probe below
  *   echo TEXT                     print TEXT
  *
@@ -31,6 +32,8 @@
 #include <string.h>
 #include "host.h"
 #include "io.h"
+#include "tracker/model.h"
+#include "ui/ui.h"
 
 static const char *const BTN_N[B_COUNT] = {"OCT-", "OCT+", "FX", "SEL", "ENV", "LFO", "EDIT",
                                            "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"};
@@ -150,7 +153,8 @@ static int key_of(const char *s)
 }
 
 /* ------------------------------------------------------------- probes --- */
-/* expect WHAT [ARGS] VAL. Later stories add the app's state here (cell, view, ...). */
+/* expect WHAT [ARGS] VAL. The app's state: view, track, phrase, cursor row|col, octave, and
+ * cell ROW COL (the byte at that step and STEP_* column of the phrase the view edits). */
 static long p_ms(char **a) { (void)a; return (long)host.now_ms; }
 static long p_buttons(char **a) { (void)a; return (long)host.buttons; }
 static long p_keys(char **a) { (void)a; return (long)host.keys; }
@@ -164,6 +168,19 @@ static long p_wav_frames(char **a) { (void)a; return (long)wav_frames(); }
 static long p_peak(char **a) { (void)a; return host.peak; }
 static long p_midi_out(char **a) { (void)a; return (long)host.midi_out; }
 static long p_store_writes(char **a) { (void)a; return (long)host.store_writes; }
+static long p_view(char **a) { (void)a; return ui_probe(UI_PROBE_VIEW); }
+static long p_track(char **a) { (void)a; return ui_probe(UI_PROBE_TRACK); }
+static long p_phrase(char **a) { (void)a; return ui_probe(UI_PROBE_PHRASE); }
+static long p_octave(char **a) { (void)a; return ui_probe(UI_PROBE_OCT); }
+static long p_cursor(char **a)
+{
+    if (!strcmp(a[0], "row"))
+        return ui_probe(UI_PROBE_ROW);
+    if (!strcmp(a[0], "col"))
+        return ui_probe(UI_PROBE_COL);
+    return bad("cursor: row or col, not", a[0]);
+}
+static long p_cell(char **a) { return phrase_get(ui_probe(UI_PROBE_PHRASE), (int)num(a[0]), (int)num(a[1])); }
 static long p_pixel(char **a)           /* RGB565 as the app drew it */
 {
     long x = num(a[0]), y = num(a[1]);
@@ -193,6 +210,12 @@ static const struct probe {
     {"peak", 0, p_peak},
     {"midi_out", 0, p_midi_out},
     {"store_writes", 0, p_store_writes},
+    {"view", 0, p_view},
+    {"track", 0, p_track},
+    {"phrase", 0, p_phrase},
+    {"octave", 0, p_octave},
+    {"cursor", 1, p_cursor},
+    {"cell", 2, p_cell},
 };
 
 /* 0 = met, 1 = failed */
@@ -361,6 +384,8 @@ int main(int argc, char **argv)
             leds();
         else if (!strcmp(cmd, "peakreset"))
             host.peak = 0;
+        else if (!strcmp(cmd, "blitsreset"))
+            host.blits = 0;
         else if (!strcmp(cmd, "expect")) {
             if (ntok < 3)
                 bad("expect: WHAT [ARGS] VAL", "");

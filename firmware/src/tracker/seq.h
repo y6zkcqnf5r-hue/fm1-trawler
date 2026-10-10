@@ -25,6 +25,9 @@ void seq_init(void);                    /* stopped, voices silent; with the audi
 /* interface side: 0, or -1 if the command queue is full */
 int seq_cmd_play_phrase(int track, int phrase);   /* loop one phrase on a track, from step 0 */
 int seq_cmd_stop(void);
+/* play a note on a track's voice, as a key does (note < 0: release it); a step of the playback may
+ * take the voice back */
+int seq_cmd_preview(int track, int instr, int note);
 
 /* audio side: adds n interleaved L R frames (Q15) to lr */
 void seq_render(int32_t *lr, int n);
