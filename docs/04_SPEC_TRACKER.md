@@ -91,13 +91,13 @@ C'est sous le plafond de 48 Kio, que vérifient un `_Static_assert` et `make siz
 ### Horloge
 
 - 24 ticks par noire. Par défaut, un pas dure 6 ticks, soit une double croche.
-- La durée d'un tick en échantillons est stockée en Q8 :
+- Un tick dure exactement **110 250 / bpm échantillons** (44 100 × 60 / 24) : 918,75 à 120 BPM, donc 22 050 par noire et 5 512,5 par pas de 6 ticks (ADR-023, qui corrige ADR-010).
 
   ```
-  spt_q8 = (44100 * 60 * 256) / (bpm * 24)
+  q = 110250 / bpm        r = 110250 % bpm        (32 bits, seulement quand le tempo change)
   ```
 
-  Le calcul se fait en 32 bits (le numérateur, 677 376 000, tient dans un `uint32_t`) et seulement quand le tempo change. Il se simplifie en `30105600 / bpm`. Le quotient seul n'est pas exact pour tous les tempos : on garde aussi le reste (`30105600 % bpm`) dans un second accumulateur, qui ajoute 1/256 d'échantillon chaque fois qu'il dépasse `bpm`. Il n'y a donc aucune dérive (ADR-010).
+  Chaque tick dure `q` échantillons, plus un quand l'accumulateur du reste (`acc += r`) atteint `bpm`. Le tick k tombe donc **exactement** sur l'échantillon `floor(k × 110250 / bpm)` : aucune dérive, à tous les tempos (`tests/unit/test_seq.c` le vérifie sur 10 min, de 40 à 300 BPM). Un nouveau tempo prend effet au tick suivant.
 - **L'horloge est exacte à l'échantillon près :** le callback audio découpe son bloc de 256 frames aux frontières de tick, et traite les événements entre deux morceaux.
 - Tempo : 40 à 300 BPM, entier pour le MVP.
 
@@ -115,7 +115,7 @@ C'est sous le plafond de 48 Kio, que vérifient un `_Static_assert` et `make siz
   | Phrase | La phrase en boucle |
   | N'importe laquelle, avec SEL+PLAY | La song à partir de la ligne de song en cours |
 
-- La durée de chaque pas vient du **groove** de la piste : la valeur de l'entrée `i` donne le nombre de ticks du pas `i`.
+- La durée de chaque pas vient du **groove** de la piste : la valeur de l'entrée `i` donne le nombre de ticks du pas `i`. `FF` renvoie à l'entrée 0 ; un groove entièrement vide vaut 6 ticks, pour que la lecture avance toujours.
 
 ### Déclenchement d'un pas (au tick 0)
 
@@ -127,9 +127,11 @@ C'est sous le plafond de 48 Kio, que vérifient un `_Static_assert` et `make siz
    | NOTE et INSTR | La note se déclenche. Son instrument démarre sa table depuis la ligne 0 |
    | NOTE sans INSTR | La hauteur change **sans redéclencher** la note (legato). Avec `PSL`, la note glisse |
    | `OFF` | La voix passe en relâchement |
-   | VOL | Fixe le volume de la note (00–FF) |
+   | VOL | Fixe le volume de la note (00–FF). Vide avec une note : FF. Seul : change le volume de la note qui sonne |
 
-3. **Une voix par piste.** Une nouvelle note coupe la précédente avec un fondu de 2 ms. Au total, il n'y a donc jamais plus de 8 voix.
+   Une NOTE sans INSTR sur une voix muette la déclenche quand même.
+
+3. **Une voix par piste.** Une nouvelle note sur une voix qui sonne la fond à 0 en 96 frames (6 sous-blocs de 16, 2,2 ms), puis part de la phase 0, sans clic ; sur une voix muette, elle part sur l'échantillon exact du tick. Au total, il n'y a donc jamais plus de 8 voix. L'enveloppe avance par sous-blocs de 16 frames comptés par la voix elle-même : le son ne dépend pas de la façon dont le bloc audio est découpé.
 4. Les commandes continues (`ARP`, `PBN`, `VIB`, `PSL`, `RET`) agissent à chaque tick.
 
 ### Les tables

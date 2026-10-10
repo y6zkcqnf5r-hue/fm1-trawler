@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* The "hello" app (P0-04): a monophonic sine on the 27 keys, last note wins, octave by OCT- and
  * OCT+, a short envelope against clicks, MASTER as the output gain. The screen shows the app's
- * name, the note and the octave; the held keys light. P1 replaces it with the tracker. */
+ * name, the note and the octave; the held keys light. P1 replaces it with the tracker.
+ *
+ * Since P1-02, PLAY loops a demo phrase on track 1 through the sequencer (ADR-024): PLAY lights
+ * while it plays, the step shows on the white keys (dim). Until P1-06 lets you type a phrase. */
 #include "app/plat.h"
 #include "dsp/fixed.h"
+#include "tracker/model.h"
+#include "tracker/seq.h"
 #include "ui/gfx.h"
 
 #define C_BG 0x10A2u                    /* RGB565 */
@@ -49,6 +54,29 @@ static int is_black(int k)
 {
     int s = (k + 5) % 12;               /* key 0 is F3 */
     return s == 1 || s == 3 || s == 6 || s == 8 || s == 10;
+}
+
+/* the bit of white key w (0..15, left to right) */
+static uint32_t white_bit(int w)
+{
+    int k;
+    for (k = 0; k < NKEYS; k++)
+        if (!is_black(k) && w-- == 0)
+            return 1u << k;
+    return 0;
+}
+
+/* C-4 D#4 G-4 A#4 on steps 0 4 8 12 (G-4 at VOL 80), OFF on step E, instrument 00 */
+static void demo_phrase(void)
+{
+    static const uint8_t NOTES[4] = {48, 51, 55, 58};
+    int i;
+    for (i = 0; i < 4; i++) {
+        phrase_set(0, 4 * i, STEP_NOTE, NOTES[i]);
+        phrase_set(0, 4 * i, STEP_INSTR, 0);
+    }
+    phrase_set(0, 8, STEP_VOL, 0x80);
+    phrase_set(0, 14, STEP_NOTE, NOTE_OFF);
 }
 
 static void draw_keys(uint32_t keys)
@@ -140,18 +168,27 @@ void app_init(void)
     v_master = plat_master();
     phase = 0;
     env = gain = 0;
+    model_init();
+    demo_phrase();
+    seq_init();
 }
 
 void app_frame(void)
 {
     uint32_t buttons = plat_buttons(), keys = plat_keys();
-    uint32_t pressed = buttons & ~prev_buttons, lit = buttons;
+    uint32_t pressed = buttons & ~prev_buttons, lit = buttons, dim = 0;
     int note = -1;
 
     if (pressed >> B_OCTDN & 1u && oct > OCT_MIN)
         oct--;
     if (pressed >> B_OCTUP & 1u && oct < OCT_MAX)
         oct++;
+    if (pressed >> B_PLAY & 1u) {
+        if (seq_playing)
+            seq_cmd_stop();
+        else
+            seq_cmd_play_phrase(0, 0);
+    }
     track_keys(keys);
     prev_buttons = buttons;
     prev_keys = keys;
@@ -168,7 +205,11 @@ void app_frame(void)
         lit |= 1u << B_OCTDN;
     if (oct > OCT_START)
         lit |= 1u << B_OCTUP;
-    plat_leds(lit, keys, 0);
+    if (seq_playing) {
+        lit |= 1u << B_PLAY;
+        dim = white_bit(seq_row[0]);
+    }
+    plat_leds(lit, keys, dim);
     draw(note, keys);
 }
 
@@ -197,4 +238,5 @@ void app_audio(int32_t *lr, int n)
         }
         gain = g;
     }
+    seq_render(lr, n);
 }

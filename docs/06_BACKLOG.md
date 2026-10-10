@@ -72,7 +72,7 @@ GitHub Actions lance `make lint test web` et déploie `build/emu` sur GitHub Pag
 
 - CA : `size_report.py` affiche la taille du projet en mémoire, qui doit rester sous 48 Kio.
 
-**☐ P1-02 — Horloge du séquenceur et lecture d'une phrase (M)**
+**☑ P1-02 — Horloge du séquenceur et lecture d'une phrase (M)**
 
 Spec §2 : Q8 exact à l'échantillon, découpe du bloc aux ticks, groove 0 (06/06), lecture d'une phrase en boucle, une voix par piste avec fondu de 2 ms.
 

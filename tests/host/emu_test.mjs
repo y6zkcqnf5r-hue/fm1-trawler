@@ -3,9 +3,9 @@
 //
 //   node tests/host/emu_test.mjs          (make parity; needs build/host/trawler and build/emu/trawler.wasm)
 //
-// 1. Parity: build/host/trawler plays tests/scenarios/hello.trs with --events, which journals what the
+// 1. Parity: build/host/trawler plays each tests/scenarios/*.trs with --events, which journals what the
 //    script did to the device; the wasm replays that journal through the exports the worklet uses.
-//    Every WAV it records must hash to its line of tests/golden/hello.sha256 and equal the native
+//    Every WAV it records must hash to its line of tests/golden/<name>.sha256 and equal the native
 //    file byte for byte; the screen must have the same FNV-1a at every shot.
 // 2. The clock: web_render(128) for 10 minutes of device time ends exactly where host_run_ms says,
 //    and gives the same samples as web_run_ms.
@@ -128,7 +128,9 @@ async function parity(name) {
       default: ok(false, `journal : ligne inconnue « ${line} »`);
     }
   }
-  ok(wavs >= 2 && shots >= 3, `${wavs} WAV et ${shots} captures rejoués, ${ex.web_now()} ms d'appareil`);
+  const want = (ext) => Object.keys(golden).filter((f) => f.endsWith(ext)).length;
+  ok(wavs === want(".wav") && shots === want(".png") && wavs + shots > 0,
+     `${wavs} WAV et ${shots} captures rejoués (golden : ${want(".wav")} et ${want(".png")}), ${ex.web_now()} ms d'appareil`);
 }
 
 // ========================================================================================== 2 ===
@@ -252,7 +254,8 @@ async function keymap() {
      "AZERTY : F3 sur W, F4 sur A, E4 sur la virgule");
 }
 
-await parity("hello");
+for (const f of fs.readdirSync(path.join(ROOT, "tests/scenarios")).filter((f) => f.endsWith(".trs")).sort())
+  await parity(f.slice(0, -4));
 await clock();
 await worklet();
 await keymap();

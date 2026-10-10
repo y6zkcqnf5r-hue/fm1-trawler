@@ -105,7 +105,7 @@ void app_audio(int32_t *lr, int n);   /* n = 256 frames entrelacées G/D, Q15 da
 void app_frame(void);                 /* boucle principale : entrées, interface, dessin, ~60 Hz */
 ```
 
-**Partage entre l'audio et l'interface :** l'interface envoie ses changements au séquenceur par une file de commandes sans verrou, à un seul écrivain (`tracker/cmdq.c`). L'audio publie sa position de lecture dans des `volatile uint8_t`. Le modèle de projet est écrit par l'interface et lu par l'audio, ce qui est sûr octet par octet.
+**Partage entre l'audio et l'interface :** l'interface envoie ses changements au séquenceur par une file de commandes sans verrou, à un seul écrivain (`tracker/cmdq.c`, 16 commandes de 32 bits, vidée au début de chaque bloc audio ; `seq_cmd_play_phrase`, `seq_cmd_stop`). L'audio publie sa position de lecture dans des `volatile uint8_t`. Le modèle de projet est écrit par l'interface et lu par l'audio, ce qui est sûr octet par octet.
 
 ## 4. Les builds
 
@@ -182,7 +182,7 @@ Chaque message porte un champ `type` (`{type: "keys", mask}`), comme dans X0X ; 
 | Unitaires | `tests/unit/*.c` (mini-framework maison) | Point fixe, horloge Q8 sans dérive sur 10 min, groove, chaque commande FX, aller-retour `.trw`, annuler/rétablir |
 | Scénarios | `build/host/trawler tests/scenarios/x.trs out/` | Parcours d'interface : `press SEQ`, `turn PRESETS 3`, `key 12`, `wait 500`, `shot`, `wav 2000`, `expect cell 0 note C-4` |
 | Golden | `tests/golden/*.sha256` | Le WAV et le PNG d'un scénario ne changent pas sans qu'on le veuille (`make golden` pour les accepter) |
-| Parité | `make parity` (`node tests/host/emu_test.mjs`, dans `make test`) | Le wasm rejoue le journal d'un scénario (`trawler --events`) : mêmes WAV que les golden et que le natif, même écran à chaque capture ; l'horloge sur 10 min ; `worklet.js` lui-même sous des bouchons, à 44,1 et 48 kHz ; `keymap.js` |
+| Parité | `make parity` (`node tests/host/emu_test.mjs`, dans `make test`) | Le wasm rejoue le journal de chaque scénario de `tests/scenarios/` (`trawler --events`) : mêmes WAV que les golden et que le natif, même écran à chaque capture ; l'horloge sur 10 min ; `worklet.js` lui-même sous des bouchons, à 44,1 et 48 kHz ; `keymap.js` |
 | Taille | `make size` (`tools/size_report.py`, dans `make test`) | `firmware/src` compilé par clang en objets ELF 32 bits (`--target=thumbv7m-none-eabi -ffreestanding -nostdlibinc -DAPP_DEVICE`, ADR-020), lus par un petit lecteur ELF : RAM (`.data` + `.bss`), pool (`.pool`), code (indicatif tant qu'on n'a pas pi32v2) et projet (le symbole `proj`), face aux budgets de `app/config.h`. Échoue si un budget saute, ou si un objet appelle une division 64 bits ou un flottant logiciel. En P5, le même script lit l'ELF lié de l'appareil |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) | `make lint test web DOCKER=1` à chaque push et PR (natif compilé par gcc sous Ubuntu, rapport de taille par clang) ; sur `main`, déploiement de `build/emu` sur GitHub Pages : https://y6zkcqnf5r-hue.github.io/fm1-trawler/ |
 

@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# phrase (P1-02): PLAY loops the demo phrase (C-4 D#4 G-4 A#4, OFF on step E) at 120 BPM, two turns
+wait 100
+expect lit_buttons 0
+expect dim_keys 0
+wav phrase.wav
+tap PLAY
+expect lit_buttons 0x1000
+peakreset
+wait 1000
+expect peak >8000
+expect dim_keys >0
+wait 2900
+# a second turn: still playing, the step light moved on
+expect lit_buttons 0x1000
+tap PLAY
+expect lit_buttons 0
+expect dim_keys 0
+wait 300
+wavstop
+# released, then silent
+peakreset
+wait 100
+expect peak 0
+# PLAY again starts from step 0
+tap PLAY
+expect lit_buttons 0x1000
+tap PLAY
