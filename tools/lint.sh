@@ -15,7 +15,8 @@
 #   [appdevice] APP_DEVICE outside app/plat.h
 #   [romaddr]   a 0xFFCxxxxx constant (looks like a ROM address to the device linker)
 #   [div64]     / or % on a line that mentions a 64-bit type (heuristic: no 64-bit division)
-#   [spdx]      no "SPDX-License-Identifier: GPL-3.0-only" in the first 3 lines
+#   [spdx]      no "SPDX-License-Identifier: GPL-3.0-only" in the first 3 lines (.c .h .py .sh .js .mjs
+#               .html .yml, Makefile)
 set -u
 cd "$(dirname "$0")/.."
 
@@ -94,7 +95,7 @@ spdx_file() {
 }
 
 is_code() { case "$1" in *.c | *.h) return 0 ;; esac; return 1; }
-is_source() { case "$1" in *.c | *.h | *.py | *.sh | *.js | *.mjs | Makefile | */Makefile) return 0 ;; esac; return 1; }
+is_source() { case "$1" in *.c | *.h | *.py | *.sh | *.js | *.mjs | *.html | *.yml | Makefile | */Makefile) return 0 ;; esac; return 1; }
 
 list() {    # every file under the given paths
     for p in "$@"; do
@@ -112,7 +113,7 @@ else
         is_code "$f" && code_file "$f"
     done
     # every source file git would track (committed or not), minus the lint's own bad examples
-    for f in $( (git ls-files --cached --others --exclude-standard 2>/dev/null || find . -type f) | grep -v '^tests/lint/bad/' | sort -u); do
+    for f in $( (git ls-files --cached --others --exclude-standard 2>/dev/null || find . -type f -not -path './.git/*' -not -path './build/*' -not -path './vendor-ref/*' | sed 's|^\./||') | grep -v '^tests/lint/bad/' | sort -u); do
         [ -f "$f" ] && is_source "$f" && spdx_file "$f"
     done
 fi

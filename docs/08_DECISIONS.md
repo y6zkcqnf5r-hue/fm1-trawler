@@ -22,12 +22,12 @@
 | ADR-016 | 2026-10-10 | `make test` construit toujours le wasm et lance la parité wasm/natif (`make parity`). Sans emcc, il échoue avec un message ; `make test PARITY=0` la saute en l'écrivant en clair | La règle 7 est non négociable : un saut silencieux masquerait une régression. Le build wasm prend une seconde |
 | ADR-017 | 2026-10-10 | Clavier d'ordinateur : **les chiffres jouent les touches noires** de la rangée haute ; **⌥ (Alt) + 1–8** tourne KNOB1–4 −/+ | Avec les chiffres pris par les potards, F#4…F#5 ne se joueraient plus au clavier, ni SEL + noire (annuler, rétablir, mute, solo). Clôt Q-17 |
 | ADR-018 | 2026-10-10 | Panneau : **clic droit (ou Ctrl-clic), ou appui long de 0,5 s au doigt, verrouille un bouton** ; pas Maj-clic | Maj est SEL au clavier : Maj + clic doit rester SEL + le contrôle. L'appui long ne verrouille que si rien d'autre n'a été touché, pour que tenir SEL d'un doigt et taper de l'autre reste momentané |
+| ADR-019 | 2026-10-10 | Dépôt public **`y6zkcqnf5r-hue/fm1-trawler`** ; la CI (`.github/workflows/ci.yml`) lance `make lint test web DOCKER=1` à chaque push et PR, et un push sur `main` publie `build/emu` sur GitHub Pages | Le nom suit fm1-fomni et fm1-x0x. `DOCKER=1` en CI couvre l'image figée d'ADR-011 ; le natif y est compilé par gcc, ce qui vérifie aussi que gcc et clang rendent les mêmes octets (même `.wasm` à l'octet près en local, en Docker sur Mac et sous Linux) |
 
 ## Questions ouvertes
 
 | # | Question | À trancher avant | Piste |
 | --- | --- | --- | --- |
-| Q-01 | Le nom définitif : « Trawler » ? | P0-07 (URL de Pages) | Les autres firmwares portent des noms de bateaux (Felucca, Sloop, Dinghy, Jangada) : Trawler s'y range bien |
 | Q-02 | La police : 6×10 ou 8×12 ? | P1-05 | Maquettes de P1-04 |
 | Q-03 | Le rôle des KNOB1–4 en Song, Chain et Phrase : réglages du son en direct, ou champs de la ligne ? | P1-06 | Prototype |
 | Q-04 | La saisie hexa sur les touches : délai d'1,5 s, ou validation par EDIT ? | P1-06 | Prototype |

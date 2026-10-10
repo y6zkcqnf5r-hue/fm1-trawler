@@ -27,8 +27,11 @@ EMSDK_PYTHON ?= $(firstword $(wildcard /opt/homebrew/bin/python3.12 /usr/local/b
 ifneq ($(EMSDK_PYTHON),)
 export EMSDK_PYTHON
 endif
+# as the user, not root (the files in build/ stay theirs); Emscripten's cache then goes in build/,
+# the image's own is not writable (after Hortator's tools/build_sim.sh)
 ifeq ($(DOCKER),1)
-EMCC = docker run --rm -v "$(CURDIR)":/src -w /src emscripten/emsdk:$(EMSDK_VERSION) emcc
+EMCC = docker run --rm -u $(shell id -u):$(shell id -g) -e HOME=/tmp -e EM_CACHE=/src/build/emcache \
+       -v "$(CURDIR)":/src -w /src emscripten/emsdk:$(EMSDK_VERSION) emcc
 endif
 
 PYTHON ?= python3

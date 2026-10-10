@@ -119,7 +119,7 @@ web:   emcc $(CFLAGS_COMMON) -DAPP_HOST -DAPP_WEB -Ihost --no-entry -sSTANDALONE
          web/emu/trawler_web.c host/trawler_host.c <sources>
 ```
 
-- **emcc :** celui de l'emsdk local (`~/emsdk`, version 6.0.11, ADR-011), ou celui de l'image `emscripten/emsdk:6.0.11` avec `DOCKER=1`. Sans emcc, `make web` s'arrête avec un message qui dit quoi installer.
+- **emcc :** celui de l'emsdk local (`~/emsdk`, version 6.0.11, ADR-011), ou celui de l'image `emscripten/emsdk:6.0.11` avec `DOCKER=1`. L'image tourne sous l'utilisateur courant (`-u`), avec le cache d'Emscripten dans `build/emcache` : les fichiers de `build/` ne deviennent pas ceux de root. Les deux chemins donnent le même `.wasm`, à l'octet près. Sans emcc, `make web` s'arrête avec un message qui dit quoi installer.
 - `make web` copie aussi `index.html`, `worklet.js` et `keymap.js` dans `build/emu/` ; `make serve` sert ce dossier sur `http://127.0.0.1:8080`.
 
 - **Sans glue Emscripten :** le worklet instancie le `.wasm` avec un faux WASI (un `Proxy` qui renvoie 0), comme X0X.
@@ -184,7 +184,7 @@ Chaque message porte un champ `type` (`{type: "keys", mask}`), comme dans X0X ; 
 | Golden | `tests/golden/*.sha256` | Le WAV et le PNG d'un scénario ne changent pas sans qu'on le veuille (`make golden` pour les accepter) |
 | Parité | `make parity` (`node tests/host/emu_test.mjs`, dans `make test`) | Le wasm rejoue le journal d'un scénario (`trawler --events`) : mêmes WAV que les golden et que le natif, même écran à chaque capture ; l'horloge sur 10 min ; `worklet.js` lui-même sous des bouchons, à 44,1 et 48 kHz ; `keymap.js` |
 | Taille | `tools/size_report.py` | RAM, pool et taille du projet sous les budgets ; à terme, la taille du code compilé pour l'appareil |
-| CI | GitHub Actions | `make lint test web`, puis déploiement de `build/emu` sur GitHub Pages |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) | `make lint test web DOCKER=1` à chaque push et PR (natif compilé par gcc sous Ubuntu) ; sur `main`, déploiement de `build/emu` sur GitHub Pages : https://y6zkcqnf5r-hue.github.io/fm1-trawler/ |
 
 ### Le simulateur hôte et le format `.trs`
 
